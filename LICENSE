@@ -1,6 +1,6 @@
 The MIT License (MIT)
 
-Copyright (c) 2015 Michael McNamara
+Copyright (c) 2015 Michael McNamara, Redmond Lab, Providence Health and Services (EACRI, Providence Cancer Center).
 
 Permission is hereby granted, free of charge, to any person obtaining a copy
 of this software and associated documentation files (the "Software"), to deal
@@ -19,4 +19,19 @@ AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
 LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
+
+//The license may not give you all of the permissions necessary for your intended use.
+//This software uses code developed by Google, HighCharts and others that is subject to 
+//additional conditions.For example, some of the components used in this software include licenses that may 
+//limit how you use this software. Users may copy, display, make derivatives of, and 
+//distribute this software to others for non-commercial purposes, but must maintain the 
+//copyright notice above and this permission notice in all copies.
+
+///////////Notes and Acknowledgements and License and Disclaimer/////////////
+// Experiments conducted by Michael McNamara, Ian Hilgart, Diego Barragan
+// Study Design by Michael McNamara, Ian Hilgart, William Redmond, Stefanie Linch
+// Data Visualization by Michael McNamara, Ian Hilgart
+// Study conducted at EACRI, RWF Cancer Center, Providence Portland Medical Center. March 2015.
+// Code by Michael McNamara, Google, HighCharts, Trent Richardson, and many other places on the web.
+////Compatible Browsers: Google Chrome.
 
