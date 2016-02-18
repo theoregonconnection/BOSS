@@ -1,0 +1,3505 @@
+<html>
+</head>
+  <script type='text/javascript' src='https://www.google.com/jsapi'></script>
+  <script src="http://ajax.googleapis.com/ajax/libs/jqueryui/1.8.10/jquery-ui.js"></script>
+  <script src="http://ajax.googleapis.com/ajax/libs/jquery/1.10.2/jquery.min.js"></script>
+  <script src="http://jquery-csv.googlecode.com/git/src/jquery.csv.js"></script>
+    <script type="text/javascript" src="https://cdnjs.cloudflare.com/ajax/libs/mathjs/2.3.0/math.min.js"></script>
+  <script type="text/javascript" src="https://cdn.jsdelivr.net/jstat/1.4.3/jstat.min.js"></script>
+  <script type="text/javascript" src="https://www.google.com/jsapi?autoload={'modules':[{'name':'visualization', 'version':'1', 'packages':['corechart']}]}"></script>
+ 
+  
+  
+<script type='text/javascript'>
+///////////Notes and Acknowledgements/////////////
+// Experiments conducted by Michael McNamara, Ian Hilgart, Diego Barragan
+// Study Design by Michael McNamara, Ian Hilgart, William Redmond, Stefanie Linch
+// Data Visualization by Michael McNamara, Ian Hilgart
+// Software development conducted at EACRI, RWF Cancer Center, Providence Portland Medical Center. Michael McNamara, Ian Hilgart, Dana Emerson, Diego Barragan, William Redmond, Ted Assur.
+// Code by Michael McNamara, Google, HighCharts, jStat, JQuery, Trent Richardson, and many other places on the web.
+////Compatible Browsers: Google Chrome, Safari (mostly).
+
+///Aquire Screen Size
+$(function () {
+var ScreenWidth = window.screen.availWidth;
+var ScreenWidth = ScreenWidth * 0.9;
+
+var ScreenHeight = window.screen.availHeight;
+var ScreenHeight = ScreenHeight * 0.85;
+
+$("#bigcontainer").width(ScreenWidth).height(ScreenHeight);
+
+});
+
+
+
+$(document).ready(function() {
+    if(isAPIAvailable()) {
+      $('#files').bind('change', handleFileSelect);
+    }
+	
+//////////Alert if Wrong Browser Type///////////
+var isOpera = !!window.opera || navigator.userAgent.indexOf(' OPR/') >= 0;
+var isFirefox = typeof InstallTrigger !== 'undefined';   // Firefox 1.0+
+var isIE = /*@cc_on!@*/false || !!document.documentMode;   // At least IE6
+
+if (isOpera == true || isFirefox == true || isIE == true)
+	{
+    	alert("You should be using Google Chrome. Some features may not work properly with other browsers");
+    }
+});
+
+  function isAPIAvailable() {
+    // Check for the various File API support.
+    if (window.File && window.FileReader && window.FileList && window.Blob) {
+      // Great success! All the File APIs are supported.
+      return true;
+    } else {
+      // source: File API availability - http://caniuse.com/#feat=fileapi
+      // source: <output> availability - http://html5doctor.com/the-output-element/
+      document.writeln('The HTML5 APIs used in this form are only available in the following browsers:<br />');
+      // 6.0 File API & 13.0 <output>
+      document.writeln(' - Google Chrome: 13.0 or later<br />');
+      // 3.6 File API & 6.0 <output>
+      document.writeln(' - Mozilla Firefox: 6.0 or later<br />');
+      // 10.0 File API & 10.0 <output>
+      document.writeln(' - Internet Explorer: Not supported (partial support expected in 10.0)<br />');
+      // ? File API & 5.1 <output>
+      document.writeln(' - Safari: Not supported<br />');
+      // ? File API & 9.2 <output>
+      document.writeln(' - Opera: Not supported');
+      return false;
+    }
+  }
+
+/////Process Uploaded CSV File///////////////
+  function handleFileSelect(evt) {
+    var files = evt.target.files; // FileList object
+    var file = files[0];
+
+    // read the file metadata
+    var FileName = escape(file.name);
+	var FileType = file.type;
+	var FileSize = file.size;
+
+    // read the file contents
+    structureJavaScriptArray(file);
+  }
+
+/////Read CSV file to Javascript Array
+function structureJavaScriptArray(file) {
+    var reader = new FileReader();
+    reader.readAsText(file);
+    reader.onload = function(event){
+      var csv = event.target.result;
+      var data = $.csv.toArrays(csv);
+	  var update = document.getElementById("update");
+	  var newbasearray = data;
+	  ////Placeholder array
+	  ///var newbasearray =  [];
+	  analyzeArray(newbasearray);
+    };
+    reader.onerror = function(){ alert('Unable to read ' + file.fileName); };	
+}
+
+/////////FUNCTIONS//////////
+/////////FUNCTIONS//////////
+/////////FUNCTIONS//////////
+/////////FUNCTIONS//////////
+/////////FUNCTIONS//////////
+/////////Style Arrays////////
+var cancertypeshapesarray = ['circle','square','triangle','diamond','star','polygon','circle','circle','circle','circle','circle','circle'];
+var cancertypeshapesarrayhtmlcodes = ['&#9679;','&#9632;','&#9650;','&#9670;','&#9733;','&#9751;','&#9679;','&#9679;','&#9679;','&#9679;','&#9679;','&#9679;'];
+var treatmentcolorsarray = ['black','fuchsia','aqua','maroon','navy','lime','teal','olive','purple','blue','red','yellow','green'];
+var cancertreatpairsselectionformat = [[null,null,null]];
+
+
+
+////STATS FUNCTIONS/////
+//////Welch's T Test//////
+function welchttest(firstsamplemean, firstsamplestandarddeviation, firstsamplesize, secondsamplemean, secondsamplestandarddeviation, secondsamplesize ) {
+	
+	var tvaluenumerator = firstsamplemean - secondsamplemean;
+	var firstsamplevariance = firstsamplestandarddeviation * firstsamplestandarddeviation;
+	var secondsamplevariance = secondsamplestandarddeviation * secondsamplestandarddeviation;
+	var tvaluedenominator = (firstsamplevariance / firstsamplesize ) + (secondsamplevariance / secondsamplesize );
+	var tvaluedenominator = math.sqrt(tvaluedenominator);
+	var tscore = tvaluenumerator / tvaluedenominator;
+	return tscore;
+}
+
+////Linear Regression Analysis////
+////Linear Regression Function (from Trent Richardson)////
+////Linear Regression Function (from Trent Richardson)////
+////Returns
+//var lr = linearRegression(known_y, known_x);
+// now you have:
+// lr.slope
+// lr.intercept
+// lr.r2
+function linearRegression(y,x){
+		var lr = {};
+		var n = y.length;
+		var sum_x = 0;
+		var sum_y = 0;
+		var sum_xy = 0;
+		var sum_xx = 0;
+		var sum_yy = 0;
+		
+		for (var i = 0; i < y.length; i++) {
+			
+			sum_x += x[i];
+			sum_y += y[i];
+			sum_xy += (x[i]*y[i]);
+			sum_xx += (x[i]*x[i]);
+			sum_yy += (y[i]*y[i]);
+		} 
+		
+		lr['slope'] = (n * sum_xy - sum_x * sum_y) / (n*sum_xx - sum_x * sum_x);
+		lr['intercept'] = (sum_y - lr.slope * sum_x)/n;
+		lr['r2'] = Math.pow((n*sum_xy - sum_x*sum_y)/Math.sqrt((n*sum_xx-sum_x*sum_x)*(n*sum_yy-sum_y*sum_y)),2);
+		
+		return lr;
+}
+
+
+//////Calculate Linear Regression, Outlier De-weighted Linear Regression and P Value From 2 paired arrays/////
+//////Calculate Linear Regression, Outlier De-weighted Linear Regression and P Value From 2 paired arrays/////
+function calculatelinearregressionandpvalue(XaxisOutcome, YaxisParameter, SelectedOutcome, SelectedPopulation) {
+		
+	if (XaxisOutcome.length == YaxisParameter.length)
+		{	
+			var CorrelationInputArray = [];
+			
+			var SampleSize = XaxisOutcome.length;	
+			if (isNaN(SampleSize) == true)
+				{
+					var SampleSize = 0;
+				}
+				
+			var SampleSizeCoEfficient = 1;
+			var lr = linearRegression(YaxisParameter,XaxisOutcome);
+			var roundedr2 = Math.round(lr.r2 * 10000) / 10000;
+			var CheckIfValid = isNaN(roundedr2);
+			if (roundedr2 > 1 || roundedr2 < 0 || CheckIfValid == true)
+				{roundedr2 = 0;}
+			
+			/////Calculate P Value
+			var tempslope = lr.slope;
+			if (isNaN(tempslope) == true)
+				{
+					var tempslope = 0;
+				}
+			var tempintercept = lr.intercept;
+			if (isNaN(tempintercept) == true)
+				{
+					var tempintercept = 0;
+				}
+			var tempPvalue = linearregressionpvalue(YaxisParameter,XaxisOutcome,tempslope,tempintercept);
+			if (isNaN(tempPvalue) == true || roundedr2 == 0 || roundedr2 == 1)
+				{
+					var tempPvalue = 1;
+				}
+			
+			////Single Level Outlier Adjusted 1r2 Value
+			CombinedArray = [];
+			var combinedarraycount = 0;
+			while (combinedarraycount < YaxisParameter.length)
+				{
+					var YValue = YaxisParameter[combinedarraycount];
+					var XValue = XaxisOutcome[combinedarraycount];
+					CombinedArray.push([YValue, XValue]);
+					combinedarraycount++;
+				}
+			
+			CombinedArray.sort(function(a,b){
+				// each value in this array is an array
+				// the 0th position has what we want to sort on
+				// Date objects are represented as a timestamp when converted to numbers
+				return a[0] - b[0];
+			});
+			CombinedArray.pop();
+			CombinedArray.shift();
+
+			CombinedArray.sort(function(a,b){
+				return a[1] - b[1];
+			});							
+			CombinedArray.pop();
+			CombinedArray.shift();
+
+			var combinedarraycount = 0;
+			var AdjustedYValues = [];
+			var AdjustedXValues = [];
+			while (combinedarraycount < CombinedArray.length)
+				{
+					AdjustedYValues.push(CombinedArray[combinedarraycount][0]);
+					AdjustedXValues.push(CombinedArray[combinedarraycount][1]);
+					combinedarraycount++;
+				}							
+
+			var OutlierAdjusted = linearRegression(AdjustedYValues,AdjustedXValues);
+			var OutlierAdjustedRoundedr2 = Math.round(OutlierAdjusted.r2 * 10000) / 10000;
+			var CheckIfValidADJUSTED = isNaN(OutlierAdjustedRoundedr2);
+			if (OutlierAdjustedRoundedr2 < 0 || OutlierAdjustedRoundedr2 > 1 || CheckIfValidADJUSTED == true)
+				{
+					var OutlierAdjustedRoundedr2 = 0;
+				}
+			
+			var composite = (OutlierAdjustedRoundedr2 * 0.25) + (roundedr2 * 0.75);
+			var compositerounded = Math.round(composite * 10000) / 10000;
+			if (isNaN(compositerounded) == true)
+				{
+					var compositerounded = 0;
+				}				
+				
+			CorrelationInputArray.push(tempPvalue, roundedr2, compositerounded, tempslope, tempintercept, SampleSize);
+			
+			return CorrelationInputArray;
+			
+		}
+		
+	}
+
+
+
+
+
+
+
+
+
+
+////Define P Value of Line of Best Fit
+function linearregressionpvalue(YaxisParameter, XaxisOutcome, slope, intercept) {
+
+
+	/////Calculate P Value
+	SampleYValuesMean = math.mean(YaxisParameter);
+	SampleYValuesMin = math.min(YaxisParameter);
+	SampleYValuesMax = math.max(YaxisParameter);
+		
+		////Loop Value to create arrays of probabilities
+		var PredictedProbabilities = [];
+		var NullProbabilities = [];
+		var PValueLoopCount = 0;
+		while (PValueLoopCount < YaxisParameter.length)
+			{
+				var tempSampleY = YaxisParameter[PValueLoopCount];
+				var tempSampleX = XaxisOutcome[PValueLoopCount];
+				
+				var PredictedYValue = (slope * tempSampleX) + intercept;
+				var PredictedYValuetoMax = SampleYValuesMax - PredictedYValue;
+				var PredictedYValuetoMin = PredictedYValue - SampleYValuesMin;
+				var MaximimumRangeForPredictedValue = math.max([PredictedYValuetoMax,PredictedYValuetoMin]);
+
+				var NullYValuetoMax = SampleYValuesMax - SampleYValuesMean;
+				var NullYValuetoMin = SampleYValuesMean - SampleYValuesMin;
+				var MaximimumRangeForNullValue = math.max([NullYValuetoMax,NullYValuetoMin]);
+													
+				var RealDifferenceBetweenActualAndPredicted = math.abs(tempSampleY - PredictedYValue);
+				var RealDifferenceBetweenActualAndNull = math.abs(tempSampleY - SampleYValuesMean);
+
+				var ProbabilityOfProximitytoPredicted = RealDifferenceBetweenActualAndPredicted / MaximimumRangeForPredictedValue;
+				var ProbabilityOfProximitytoNull = RealDifferenceBetweenActualAndNull / MaximimumRangeForNullValue;
+				
+				PredictedProbabilities.push(ProbabilityOfProximitytoPredicted);
+				NullProbabilities.push(ProbabilityOfProximitytoNull);
+				
+				PValueLoopCount++;
+			}
+				
+	
+		/////Run T Test on the Probabilities of Predicted vs Null
+		var NullProbMean = math.mean(NullProbabilities);
+		var NullProbStandardDeviation = math.std(NullProbabilities);
+		var NullProbSampleSize = NullProbabilities.length;
+
+		var PredictedProbMean = math.mean(PredictedProbabilities);
+		var PredictedProbStandardDeviation = math.std(PredictedProbabilities);
+		var PredictedProbSampleSize = PredictedProbabilities.length;
+
+		var tempTscore = welchttest(PredictedProbMean,  PredictedProbStandardDeviation, PredictedProbSampleSize, NullProbMean, NullProbStandardDeviation, NullProbSampleSize);
+		var tempTscore = math.round(tempTscore * 10000) / 10000;
+		var tempPvalue = jStat.ttest(tempTscore, PredictedProbSampleSize, 2);
+		var tempPvalue = math.round(tempPvalue * 10000000000000000) / 10000000000000000;
+		
+		///Error check tempPvalue
+		if (isNaN(tempPvalue) == true || tempPvalue < 0 || tempPvalue > 1)
+			{
+				tempPvalue = 1;
+			}
+		return tempPvalue;
+
+	}
+
+//////Raw Array Processing Functions//////
+//////Raw Array Processing Functions//////
+//////Raw Array Processing Functions//////
+//////Raw Array Processing Functions//////
+
+///Determine Timepoint Postion///
+function determinetimepointposition(newbasearray) {
+	var count = 0; 
+	var timepointposition = -1;
+	while (count < newbasearray.length) 
+		{
+			var checker = newbasearray[0][count];
+			if (checker == "Timepoint")
+				{
+					var timepointposition = count;
+					count++;
+				}
+			else {	count++;}
+		}
+	if (timepointposition < 0)
+		{
+			alert("Timepoint Position Not Found");
+		}
+	return timepointposition;
+}
+
+///Create Sorted Timepoint List with Experimental vs Baseline Differentials///
+function createsortedtimepointlistwithdifferentials(newbasearray, timepointposition) {
+	
+	var timepointlist = [];
+	var count = 1;
+	while (count < newbasearray.length)
+		{
+			var checker = newbasearray[count][timepointposition];
+			var checker = Number(checker);
+			var ValueInIndex = timepointlist.indexOf(checker);
+			if (ValueInIndex < 0 )
+				{
+					timepointlist.push(checker);
+				}
+			count++;
+		}
+	timepointlist.sort(function(a, b){return a-b});
+
+	/////Create Differential TimepointList (Experimental Timepoint vs Baseline)
+	var tempcomparisonlist = [];
+	if (timepointlist[0] == 0 && timepointlist.length > 1)
+		{
+			var count = 1;
+			while (count < timepointlist.length)
+				{
+					var temptimepointcomparison = timepointlist[count] + " vs " + 0;
+					tempcomparisonlist.push(temptimepointcomparison);
+					count++;
+				}
+		}
+
+	if (tempcomparisonlist.length > 0)
+		{
+			var count = 0;
+			while (count < tempcomparisonlist.length)
+				{		
+					var tempcomparisoninsert = tempcomparisonlist[count];
+					timepointlist.push(tempcomparisoninsert);
+					count++;
+				}
+		}
+	
+	return timepointlist;
+}
+
+///Determine Patient Position///
+function determinepatientposition(newbasearray) {
+	var count = 0; 
+	var patientposition = -1;
+	while (count < newbasearray[0].length) 
+		{
+			var checker = newbasearray[0][count];
+			if (checker == "PatientID")
+				{
+					var patientposition = count;
+				}
+			count++;
+		}
+	if (patientposition < 0)
+		{
+			alert("Patient Position Not Found");
+		}
+		
+	return patientposition;
+}
+
+///Create Sorted Patient List///
+function createsortedpatientlist(newbasearray, patientposition) {
+	var patientlist = [];
+	var count = 1;
+	while (count < newbasearray.length)
+		{
+			var checker = newbasearray[count][patientposition];
+			var ValueInIndex = patientlist.indexOf(checker);
+			if (ValueInIndex < 0 && checker.length > 0 && checker !== null && checker !== "null")
+				{
+					patientlist.push(checker);
+				}
+			count++;
+		}
+	patientlist.sort();
+	
+	return patientlist;
+}
+
+
+////Create Sorted Population List Array/////
+function createsortedpopulationlistarray(newbasearray) {
+	var populationlist = [];
+	var populationlistindex = [];
+	var sortedpopulationlistarray = [];
+	
+	var count = 0;
+	while (count < newbasearray[0].length)
+		{
+			var checker = newbasearray[0][count];
+			
+			var n = checker.indexOf(":");
+			
+			if (n > -1)
+				{
+					var CheckForNonNullValues = -1;
+					var count2 = 1;
+					while (count2 < newbasearray.length)
+						{
+							if (newbasearray[count2][count].length > 0 && newbasearray[count2][count] !== "null" && newbasearray[count2][count] !== null)
+								{
+									CheckForNonNullValues++;
+								}
+							count2++;
+						}
+						
+					if (CheckForNonNullValues > 0)
+						{	
+							var selectedpopulation = checker;
+							var selectedpopulation = selectedpopulation + ".";
+							var ValueInIndex = populationlist.indexOf(selectedpopulation);
+							if (ValueInIndex < 0)
+								{
+									populationlist.push(selectedpopulation);
+									populationlistindex.push(count);
+									sortedpopulationlistarray.push([selectedpopulation, count]);
+								}
+						}
+				}
+			count++;
+		}
+	
+	sortedpopulationlistarray.sort();
+	
+	var populationlist = [];
+	var populationlistindex = [];
+	
+	var count = 0;
+	while (count < sortedpopulationlistarray.length)
+		{
+			populationlist.push(sortedpopulationlistarray[count][0]);
+			populationlistindex.push(sortedpopulationlistarray[count][1]);
+			count++;
+		}
+	var allthreepopulationarrays = [populationlist, populationlistindex, sortedpopulationlistarray]
+	
+	return allthreepopulationarrays;
+}
+	
+
+///Create Sorted Outcomes List///
+function createsortedoutcomeslistarray(newbasearray) {
+	var outcomeslist = [];
+	var outcomeslistindex = [];
+	var sortedoutcomeslist = [];
+
+	var count = 0;
+	while (count < newbasearray[0].length)
+		{
+			var checker = newbasearray[0][count].indexOf("Outcomes -");
+			if (checker > -1)
+				{
+					var CheckForNonNullValues = -1;
+					var UniqueValuesList = [];
+					var UniqueValuesCount = 0;
+					var count2 = 1;
+					while (count2 < newbasearray.length)
+						{
+							if (newbasearray[count2][count].length > 0 && newbasearray[count2][count] !== "null" && newbasearray[count2][count] !== null)
+								{
+									CheckForNonNullValues++;
+									var tempvalue = newbasearray[count2][count];
+									var checkforuniquevalue = UniqueValuesList.indexOf(tempvalue);
+									if (checkforuniquevalue < 0)
+										{
+											UniqueValuesList.push(tempvalue);
+											UniqueValuesCount++;
+										}
+								}
+							count2++;
+						}				
+					
+					if (CheckForNonNullValues > 1 && UniqueValuesCount > 1)
+						{				
+							var selectedmarker = newbasearray[0][count];
+							var ValueInIndex = outcomeslist.indexOf(selectedmarker);
+							if (ValueInIndex < 0 )
+								{
+									outcomeslist.push(selectedmarker);
+									outcomeslistindex.push(count);
+									sortedoutcomeslist.push([selectedmarker, count]);
+								}
+						}
+				}
+			count++;
+		}
+		
+	sortedoutcomeslist.sort();
+	var allthreeoutcomesarrays = [outcomeslist, outcomeslistindex, sortedoutcomeslist];
+	
+	return allthreeoutcomesarrays;
+}
+
+
+///Create Sorted Groups List///
+function createsortedgroupslistarray(newbasearray) {
+
+	var groupslist = [];
+	var groupslistindex = [];
+	var sortedgroupslist = [];
+	
+	var count = 0;
+	while (count < newbasearray[0].length)
+		{
+			var checker = newbasearray[0][count].indexOf("Group -");
+			if (checker > -1)
+				{
+					var CheckForNonNullValues = 0;
+					var count2 = 1;
+					while (count2 < newbasearray.length)
+						{
+							if (newbasearray[count2][count].length > 0 && newbasearray[count2][count] !== "null" && newbasearray[count2][count] !== null)
+								{
+									CheckForNonNullValues++;
+								}
+							count2++;
+						}	
+
+
+					if (CheckForNonNullValues > 5)
+						{	
+							var selectedmarker = newbasearray[0][count];
+							var ValueInIndex = groupslist.indexOf(selectedmarker);
+							if (ValueInIndex < 0 )
+								{
+									groupslist.push(selectedmarker);
+									groupslistindex.push(count);
+									sortedgroupslist.push([selectedmarker, count]);
+								}
+						}
+				}
+			count++;
+		}
+	
+	
+	sortedgroupslist.sort();
+	var allthreegroupsarrays = [groupslist, groupslistindex, sortedgroupslist];
+	
+	return allthreegroupsarrays;
+}
+
+
+
+///Determine CancerType Position////
+function determinecancertypeposition(newbasearray) {
+	var count = 0; 
+	var cancertypeposition = -1;
+	while (count < newbasearray[0].length) 
+		{
+			var checker = newbasearray[0][count];
+			if (checker == "CancerType")
+				{
+					var cancertypeposition = count;
+				}
+			count++;
+		}
+	if (cancertypeposition < 0)
+		{
+			alert("Cancer Type Position Not Found");
+		}
+	
+	return cancertypeposition;
+}
+
+
+///Create Sorted Cancer Type List///
+function createsortedcancertypelist(newbasearray, cancertypeposition) {
+	var cancertypelist = [];
+	var count = 1;
+	while (count < newbasearray.length)
+		{
+			var checker = newbasearray[count][cancertypeposition];
+			var ValueInIndex = cancertypelist.indexOf(checker);
+			if (ValueInIndex < 0 )
+				{
+					cancertypelist.push(checker);
+				}
+			count++;
+		}
+	cancertypelist.sort();
+	
+	return cancertypelist;
+}
+
+
+///Determine Treatment Position///
+function determinetreatmentposition(newbasearray) {
+	var count = 0; 
+	var treatmentposition = -1;
+	while (count < newbasearray[0].length) 
+		{
+			var checker = newbasearray[0][count];
+			if (checker == "Treatment")
+				{
+					var treatmentposition = count;
+				}
+			count++;
+		}
+	if (treatmentposition < 0)
+		{
+			alert("Treatment Position Not Found");
+		}
+	
+	return treatmentposition;
+}
+
+///Create Sorted List of Treatments///
+function createsortedtreatmentlist(newbasearray, treatmentposition) {
+	var treatmentlist = [];
+	var count = 1;
+	while (count < newbasearray.length)
+		{
+			var checker = newbasearray[count][treatmentposition];
+			var ValueInIndex = treatmentlist.indexOf(checker);
+			if (ValueInIndex < 0 )
+				{
+					treatmentlist.push(checker);
+				}
+			count++;
+		}
+	
+	treatmentlist.sort();
+	
+	return treatmentlist;
+}
+
+
+///Create CancerType-Treatment Pair List (Cohorts)///
+function createcancertypetreatmentpairlist(newbasearray, cancertypeposition, treatmentposition) { 
+	var cancertypetreatmentpairlist = [];
+	var count = 1;
+	while (count < newbasearray.length)
+		{
+			var checker1 = newbasearray[count][cancertypeposition];
+			var checker2 = newbasearray[count][treatmentposition];
+			var mergedcancertypetreatmentpair = checker1 + " - " + checker2;
+			var ValueInIndex = cancertypetreatmentpairlist.indexOf(mergedcancertypetreatmentpair);
+			if (ValueInIndex < 0 )
+				{
+					cancertypetreatmentpairlist.push(mergedcancertypetreatmentpair);
+				}
+			count++;
+		}
+	
+	cancertypetreatmentpairlist.sort();
+	
+	return cancertypetreatmentpairlist;
+}
+
+
+///Create Timepoint-Parameter Pairs List///
+function createtimepointparameterpairslist(timepointlist, populationlist) { 
+	var timepointparameterpairslist = [];
+	var populationlistcount = 0;
+	while (populationlistcount < populationlist.length)
+		{
+			var selectedpopulation = populationlist[populationlistcount];
+			var timepointlistcount = 0;
+			while (timepointlistcount < timepointlist.length)
+				{
+					var selectedtimepoint = timepointlist[timepointlistcount];
+					var HeaderToInsert = selectedtimepoint + ": " + selectedpopulation;
+					timepointparameterpairslist.push(HeaderToInsert);
+					timepointlistcount++;
+				}
+			populationlistcount++;
+		}
+	
+	return timepointparameterpairslist;
+}
+	
+
+/////Construct Outcomes Array Headers/////
+function constructoutcomesarrayheaders(outcomeslist, groupslist, timepointparameterpairslist) {
+	var outcomesarrayheaders = [];
+	outcomesarrayheaders.push("PatientID");
+	outcomesarrayheaders.push("CancerType");
+	outcomesarrayheaders.push("Treatment");
+	outcomesarrayheaders.push("CancerTreatPair");
+	outcomesarrayheaders.push("Style1");
+	outcomesarrayheaders.push("Style2");	
+	
+	var count = 0;
+	while (count < outcomeslist.length)
+		{
+			var tempvalue = outcomeslist[count];
+			outcomesarrayheaders.push(tempvalue);
+			count++;
+		}
+
+	var count = 0;
+	while (count < groupslist.length)
+		{
+			var tempvalue = groupslist[count];
+			outcomesarrayheaders.push(tempvalue);
+			count++;
+		}
+
+	var count = 0;
+	while (count < timepointparameterpairslist.length)
+		{
+			var tempvalue = timepointparameterpairslist[count];
+			outcomesarrayheaders.push(tempvalue);
+			count++;
+		}
+
+	return outcomesarrayheaders;
+}
+
+
+////Determine CancerType-Treatment Pair Position
+function determinecancertypetreatmentpairposition(MasterOutcomesArray) {
+	var count = 0;
+	while (count < MasterOutcomesArray[0].length)
+		{
+			if (MasterOutcomesArray[0][count] == "CancerTreatPair")
+				{
+					var position = count;
+					count = 999999999999999999999;
+				}
+			count++;
+		}
+	
+	return position;
+}
+
+////Determine Style Position 1
+function determinestyleposition1(MasterOutcomesArray) {
+	var count = 0;
+	while (count < MasterOutcomesArray[0].length)
+		{
+			if (MasterOutcomesArray[0][count] == "Style1")
+				{
+					var position = count;
+					count = 999999999999999999999;
+				}
+			count++;
+		}
+	
+	return position;
+}
+
+////Determine Style Position 2
+function determinestyleposition2(MasterOutcomesArray) {
+	var count = 0;
+	while (count < MasterOutcomesArray[0].length)
+		{
+			if (MasterOutcomesArray[0][count] == "Style2")
+				{
+					var position = count;
+					count = 999999999999999999999;
+				}
+			count++;
+		}
+	
+	return position;
+}
+
+//////Create Stable Duplicate of an Array
+function createstableduplicatearray(array) {
+	var duplicatearray = [];
+	var count = 0;
+	while (count < array.length)
+		{
+			duplicatearray.push(array[count]);
+			count++;
+		}
+	return duplicatearray;
+}
+
+
+////Determine Initial Outcome Position in Array////
+function determinefirstoutcomeposition(MasterOutcomesArray) {
+	var headerloopcount = 0;
+	var outcomesindexcheck = -1;
+	while (headerloopcount < MasterOutcomesArray[0].length)
+				{
+					var selectedheadervalue = MasterOutcomesArray[0][headerloopcount];
+					var outcomesindexcheck = selectedheadervalue.indexOf("Outcomes");
+						
+					if (outcomesindexcheck > -1)
+						{
+							var firstoutcomeposition = headerloopcount;
+							headerloopcount = 9999999999999999999999;
+						}
+					headerloopcount++;
+				}
+	return firstoutcomeposition;
+}
+
+
+////Determine Initial Population Position in Array///
+function determinefirstpopulationposition(MasterOutcomesArray) {
+	var headerloopcount = 0;
+	var populationindexcheck = -1;
+	while (headerloopcount < MasterOutcomesArray[0].length)
+				{
+					var selectedheadervalue = MasterOutcomesArray[0][headerloopcount];
+					var populationindexcheck = selectedheadervalue.indexOf(":");
+						
+					if (populationindexcheck > -1)
+						{
+							var firstpopulationposition = headerloopcount;
+							headerloopcount = 9999999999999999999999;
+						}
+					headerloopcount++;
+				}
+			return firstpopulationposition;
+}
+
+
+////////CancerType-Treatment Pair Row Array///////////
+function createcancertypetreatpairrowsarray(MasterOutcomesArray, cancertypetreatmentpairlist, cancertreatpairposition) {
+
+	var cancertypetreatpairrowsarray = [];
+	var count = 0;
+	while (count < cancertypetreatmentpairlist.length)
+		{
+			
+			var selectedpair = cancertypetreatmentpairlist[count];
+			var adjustedrowlist = [];
+			var unadjustedrowlist = [];
+			
+			var count2 = 0;
+			while (count2 < MasterOutcomesArray.length)
+				{
+					
+					var masterarrayselection = MasterOutcomesArray[count2][cancertreatpairposition];
+					if (masterarrayselection == selectedpair)
+						{
+							adjustedrowlist.push((count2 - 1));
+							unadjustedrowlist.push((count2));
+						}
+					count2++;
+				}
+				
+			var mergedinsert = [selectedpair,adjustedrowlist,unadjustedrowlist];
+			cancertypetreatpairrowsarray.push(mergedinsert);
+			count++;
+		}
+		
+	return cancertypetreatpairrowsarray;
+}
+
+
+////////Groups Parent-Child Selection Construction and Rows Array///////////
+function creategroupsparentchildselectionandrowsarray(MasterOutcomesArray) {
+
+	var groupsubsetuniquelist = [];
+	var groupsubsetrowarray = [];
+	var unadjustedgroupsubsetrowarray = [];
+
+	var headerloopcount = 0;
+	while (headerloopcount < MasterOutcomesArray[0].length)
+		{
+			var groupsindexcheck = -1;
+			var selectedheadervalue = MasterOutcomesArray[0][headerloopcount];
+			var groupsindexcheck = selectedheadervalue.indexOf("Group -");
+			
+			if (groupsindexcheck > -1)
+				{	
+					var selectedgroup = selectedheadervalue;
+					var selectedgroupposition = headerloopcount;
+							
+					var masterloopcount = 1;
+					while (masterloopcount < MasterOutcomesArray.length)
+						{
+							var selectedgroupsubsetvalue = MasterOutcomesArray[masterloopcount][selectedgroupposition];																			
+							var groupparentchildpair = selectedgroup + ": " + selectedgroupsubsetvalue;	
+		
+							var groupparentchildpairuniquecheck = groupsubsetuniquelist.indexOf(groupparentchildpair);
+							if (groupparentchildpairuniquecheck < 0)
+								{
+									groupsubsetuniquelist.push(groupparentchildpair);
+									var freshrowarray = [];
+									groupsubsetrowarray.push(freshrowarray);
+								}								
+							///Assign Row Values to groupparentchildpair
+							var arraypositionofselection = groupsubsetuniquelist.indexOf(groupparentchildpair);
+							groupsubsetrowarray[arraypositionofselection].push(masterloopcount);	
+							masterloopcount++;
+						}
+				}
+			headerloopcount++;
+		}
+	
+	var AllArrays = [groupsubsetuniquelist, groupsubsetrowarray, unadjustedgroupsubsetrowarray];
+	return AllArrays;
+	
+}
+
+
+//////Construct Single Array with Group-Subset Pairs and Row Arrays/////
+function createmergedgroupsubsetpairnamesandrowsarray(groupsubsetuniquelist, groupsubsetrowarray) {
+
+	var mergedgroupsubsetpairnamesandrows = [];
+	var count = 0;
+	while (count < groupsubsetuniquelist.length)
+		{
+			var tempgroupsubsetpair = groupsubsetuniquelist[count];
+			var tempgroupsubsetpairrowsarray = groupsubsetrowarray[count];
+			mergedgroupsubsetpairnamesandrows.push([tempgroupsubsetpair,tempgroupsubsetpairrowsarray]);
+			count++;
+		}
+	
+	return mergedgroupsubsetpairnamesandrows;
+}
+
+////////Construct Single Array with Cohort-Group Pairs and Row Arrays//////
+function createmergedcohortgrouppairsandrowsarray(cancertypetreatpairrowsarray, mergedgroupsubsetpairnamesandrows) {
+
+	var cohortgrouppairsandrows = [];
+	var count = 0;
+	while (count < cancertypetreatpairrowsarray.length)
+		{
+			var tempcohortname = cancertypetreatpairrowsarray[count][0];
+			var tempcohortrows = cancertypetreatpairrowsarray[count][2];
+			
+			var count2 = 0;
+			while (count2 < mergedgroupsubsetpairnamesandrows.length)
+				{
+					var tempgroupname = mergedgroupsubsetpairnamesandrows[count2][0];
+					var tempgrouprows = mergedgroupsubsetpairnamesandrows[count2][1];
+					
+					var tempmergedrows = [];
+					var count3 = 0;
+					while (count3 < tempcohortrows.length)
+						{
+							var rowtocheck = tempcohortrows[count3];
+							var uniquechecker = tempgrouprows.indexOf(rowtocheck);
+							if (uniquechecker > -1)
+								{
+									tempmergedrows.push(rowtocheck);
+								}
+							count3++;
+						}
+					
+					if (tempmergedrows.length > 4)
+						{
+							cohortgrouppairsandrows.push([tempcohortname,tempgroupname,tempmergedrows]);
+						}
+					count2++;
+				}
+			count++;
+		}
+	
+	return cohortgrouppairsandrows;
+}
+
+
+///////Create Master Outcomes Array/////
+///////Create Master Outcomes Array/////
+///////Create Master Outcomes Array/////
+function createMasterOutcomesArray(newbasearray, cancertypeshapesarray, cancertypeshapesarrayhtmlcodes, treatmentcolorsarray, cancertreatpairsselectionformat, timepointposition, timepointlist, patientposition, patientlist, populationlist, populationlistindex, outcomeslist, outcomeslistindex, groupslist, groupslistindex, cancertypeposition, cancertypelist, treatmentposition, treatmentlist, cancertypetreatmentpairlist, timepointparameterpairslist, outcomesarrayheaders) {
+		var MasterOutcomesArray = [];
+		var AllRowsArray = [];
+		MasterOutcomesArray.push(outcomesarrayheaders);
+
+	////Loop through unique patient list
+		var patientcount = 0;
+		while (patientcount < patientlist.length)
+			{
+				var outcomesarraydatarow = [];
+				var selectedpatient = patientlist[patientcount];
+				outcomesarraydatarow.push(selectedpatient);
+			
+			////Loop through Outcomes Array Headers
+				var headerloopcount = 0;
+				
+				while (headerloopcount < MasterOutcomesArray[0].length)
+					{
+						///Define the Selected Column Header
+						var selectedheadervalue = MasterOutcomesArray[0][headerloopcount];
+						var outcomesindexcheck = -1;
+						var populationindexcheck = -1;
+						var groupsindexcheck = -1;
+						var cancertypecheck = -1;
+						var treatmentcheck = -1;
+						var cancertreatpaircheck = -1;
+						var stylecheck1 = -1;
+						var stylecheck2 = -1;
+						var comparisontimepointcheck = -1;
+						
+						var outcomesindexcheck = selectedheadervalue.indexOf("Outcomes -");
+						var populationindexcheck = selectedheadervalue.indexOf(":");
+						var groupsindexcheck = selectedheadervalue.indexOf("Group -");
+						var cancertypecheck = selectedheadervalue.indexOf("CancerType");
+						var treatmentcheck = selectedheadervalue.indexOf("Treatment");
+						var cancertreatpaircheck = selectedheadervalue.indexOf("CancerTreatPair");
+						var stylecheck1 = selectedheadervalue.indexOf("Style1");
+						var stylecheck2 = selectedheadervalue.indexOf("Style2");
+						var comparisontimepointcheck = selectedheadervalue.indexOf(" vs ");
+						
+						///Actions For Each Header Type	
+						if (outcomesindexcheck > -1)
+							{	
+								var selectedoutcome = MasterOutcomesArray[0][headerloopcount];
+								var selectedoutcomeposition1 = outcomeslist.indexOf(selectedoutcome);
+								var selectedoutcomeposition2 = outcomeslistindex[selectedoutcomeposition1];
+								
+								///Loop Through newbasearray to Find Rows With Both Selected Patient and Selected Outcome
+								var masterloopcount = 0;
+								var selectedoutcomevalue = null;
+								while (masterloopcount < newbasearray.length)
+									{
+										if (newbasearray[masterloopcount][patientposition] == selectedpatient)
+											{
+												var selectedoutcomevalue = newbasearray[masterloopcount][selectedoutcomeposition2];
+												var placeholderoutcomesposition = masterloopcount;
+												var masterloopcount = 999999999999999999;
+											}
+										masterloopcount++;
+									}
+								if (selectedoutcomevalue == "null" || selectedoutcomevalue == null || selectedoutcomevalue == "" || selectedoutcomevalue == "NULL")
+									{
+										if (selectedoutcomevalue !== 0)
+											{
+												var selectedoutcomevalue = null;
+											}
+										else {selectedoutcomevalue = 0;}
+									}
+								else
+									{
+										var selectedoutcomevalue = Number(selectedoutcomevalue);
+									}
+								outcomesarraydatarow.push(selectedoutcomevalue);
+							}
+
+						if (groupsindexcheck > -1)
+							{	
+								var selectedgroup = MasterOutcomesArray[0][headerloopcount];
+								var selectedgroupposition1 = groupslist.indexOf(selectedgroup);
+								var selectedgroupposition2 = groupslistindex[selectedgroupposition1];
+								
+								var masterloopcount = 0;
+								var selectedgroupvalue = null;
+								while (masterloopcount < newbasearray.length)
+									{
+										if (newbasearray[masterloopcount][patientposition] == selectedpatient)
+											{
+												var selectedgroupvalue = newbasearray[masterloopcount][selectedgroupposition2];									
+												var masterloopcount = 999999999999999999;
+											}
+										masterloopcount++;
+									}
+								
+								if (selectedgroupvalue == "null" || selectedgroupvalue == null || selectedgroupvalue == "" || selectedgroupvalue == "NULL")
+									{
+										if (selectedgroupvalue !== 0)
+											{
+												var selectedgroupvalue = "Undefined";
+											}
+									}
+								
+								var selectedgroupvaluetype = typeof selectedgroupvalue;
+								if (selectedgroupvaluetype == "number")
+									{
+										var selectedgroupvalue = selectedgroupvalue.toString();
+									}
+								
+								outcomesarraydatarow.push(selectedgroupvalue);
+							}
+
+		///Single Timepoint Values				
+						if (populationindexcheck > -1 && comparisontimepointcheck == -1)
+							{
+								var selectedvaluepair = outcomesarrayheaders[headerloopcount];
+								var colonposition = selectedvaluepair.indexOf(":");
+								var selectedtimepoint1 = selectedvaluepair.substring(0, colonposition);
+								var selectedpopulation1 = selectedvaluepair.substring((colonposition + 2), selectedvaluepair.length);
+								var selectedpopulationposition1 = populationlist.indexOf(selectedpopulation1);
+								var selectedpopulationposition2 = populationlistindex[selectedpopulationposition1];
+								
+								var masterloopcount = 0;
+								var selectedpopulationvalue = null;
+								while (masterloopcount < newbasearray.length)
+									{
+										if (newbasearray[masterloopcount][patientposition] == selectedpatient && newbasearray[masterloopcount][timepointposition] == selectedtimepoint1)
+											{
+												var selectedpopulationvalue = newbasearray[masterloopcount][selectedpopulationposition2];
+												var placeholderpopulationposition = masterloopcount;
+												var masterloopcount = 999999999999999999;
+											}
+										masterloopcount++;
+									}
+								
+								if (selectedpopulationvalue == "null" || selectedpopulationvalue == null  || selectedpopulationvalue == ""  || selectedpopulationvalue == "NULL")
+									{
+										if (selectedpopulationvalue !== 0)
+											{
+												var selectedpopulationvalue = null;
+											}
+										else {selectedpopulationvalue = 0;}
+									}
+								else
+									{
+										var selectedpopulationvalue = Number(selectedpopulationvalue);
+									}						
+								outcomesarraydatarow.push(selectedpopulationvalue);
+							}
+
+		/////////Comparative Timepoint Values				
+						if (populationindexcheck > -1 && comparisontimepointcheck > -1)
+							{
+								var selectedvaluepair = outcomesarrayheaders[headerloopcount];
+								var colonposition = selectedvaluepair.indexOf(":");
+								var selectedtimepoint1 = selectedvaluepair.substring(0, colonposition);
+								var vsposition = comparisontimepointcheck;
+								var firsttimepoint = selectedtimepoint1.substring(0, vsposition);
+								var secondtimepoint = selectedtimepoint1.substring((vsposition + 4), selectedtimepoint1.length);
+								var selectedpopulation1 = selectedvaluepair.substring((colonposition + 2), selectedvaluepair.length);
+								var selectedpopulationposition1 = populationlist.indexOf(selectedpopulation1);
+								var selectedpopulationposition2 = populationlistindex[selectedpopulationposition1];
+								
+								////Define Reference (Baseline) Parameter Value
+								var masterloopcount = 0;
+								var selectedpopulationvalueREFERENCE = null;
+								while (masterloopcount < newbasearray.length)
+									{
+										if (newbasearray[masterloopcount][patientposition] == selectedpatient && newbasearray[masterloopcount][timepointposition] == secondtimepoint)
+											{
+												var selectedpopulationvalueREFERENCE = newbasearray[masterloopcount][selectedpopulationposition2];
+												var placeholderpopulationpositionREFERENCE = masterloopcount;
+												var masterloopcount = 999999999999999999;
+											}
+										masterloopcount++;
+									}
+								
+								if (selectedpopulationvalueREFERENCE == "null" || selectedpopulationvalueREFERENCE == null  || selectedpopulationvalueREFERENCE == ""  || selectedpopulationvalueREFERENCE == "NULL")
+									{
+										if (selectedpopulationvalueREFERENCE !== 0)
+											{
+												var selectedpopulationvalueREFERENCE = null;
+											}
+										else {selectedpopulationvalueREFERENCE = 0;}
+									}
+								else
+									{
+										var selectedpopulationvalueREFERENCE = Number(selectedpopulationvalueREFERENCE);
+									}	
+
+								////Define Target (Experimental) Parameter Value
+								var masterloopcount = 0;
+								var selectedpopulationvalueTARGET = null;
+								while (masterloopcount < newbasearray.length)
+									{
+										if (newbasearray[masterloopcount][patientposition] == selectedpatient && newbasearray[masterloopcount][timepointposition] == firsttimepoint)
+											{
+												var selectedpopulationvalueTARGET = newbasearray[masterloopcount][selectedpopulationposition2];
+												var placeholderpopulationpositionTARGET = masterloopcount;
+												var masterloopcount = 999999999999999999;
+											}
+										masterloopcount++;
+									}
+								
+								if (selectedpopulationvalueTARGET == "null" || selectedpopulationvalueTARGET == null  || selectedpopulationvalueTARGET == ""  || selectedpopulationvalueTARGET == "NULL")
+									{
+										if (selectedpopulationvalueTARGET !== 0)
+											{
+												var selectedpopulationvalueTARGET = null;
+											}
+										else {selectedpopulationvalueTARGET = 0;}
+									}
+								else
+									{
+										var selectedpopulationvalueTARGET = Number(selectedpopulationvalueTARGET);
+									}	
+
+								if (selectedpopulationvalueTARGET > -999999999 && selectedpopulationvalueTARGET !== null && selectedpopulationvalueREFERENCE > -99999999 && selectedpopulationvalueREFERENCE !== null)
+									{
+										var selectedpopulationvalueRESOLVED = selectedpopulationvalueTARGET - selectedpopulationvalueREFERENCE;
+									}
+								else
+									{
+										var selectedpopulationvalueRESOLVED = null;
+									}
+							
+								outcomesarraydatarow.push(selectedpopulationvalueRESOLVED);
+							}
+
+					////Process Cancer Type	
+						if (cancertypecheck > -1)
+							{		
+								var masterloopcount = 0;
+								var selectedpopulationvalue = null;
+								while (masterloopcount < newbasearray.length)
+									{
+										if (newbasearray[masterloopcount][patientposition] == selectedpatient)
+											{
+												var selectedpopulationvalue = newbasearray[masterloopcount][cancertypeposition];
+												var masterloopcount = 999999999999999999;
+											}
+										masterloopcount++;
+									}
+
+								if (selectedpopulationvalue == "null" || selectedpopulationvalue == null || selectedpopulationvalue == "" || selectedpopulationvalue == "NULL")
+									{
+										if (selectedpopulationvalue !== 0)
+											{
+												var selectedpopulationvalue = "Undefined";
+											}
+									}
+								
+								var selectedpopulationvaluetype = typeof selectedpopulationvalue;
+								if (selectedpopulationvaluetype !== "string")
+									{
+										var selectedpopulationvalue = selectedpopulationvalue.toString();
+									}				
+								
+								outcomesarraydatarow.push(selectedpopulationvalue);
+							}				
+
+					///Process Treatment Type
+						if (treatmentcheck > -1)
+							{		
+								var masterloopcount = 0;
+								var selectedpopulationvalue = null;
+								while (masterloopcount < newbasearray.length)
+									{
+										if (newbasearray[masterloopcount][patientposition] == selectedpatient)
+											{
+												var selectedpopulationvalue = newbasearray[masterloopcount][treatmentposition];
+												var masterloopcount = 999999999999999999;
+											}
+										masterloopcount++;
+									}
+								
+								if (selectedpopulationvalue == "null" || selectedpopulationvalue == null || selectedpopulationvalue == "" || selectedpopulationvalue == "NULL")
+									{
+										if (selectedpopulationvalue !== 0)
+											{
+												var selectedpopulationvalue = "Undefined";
+											}
+									}
+								
+								var selectedpopulationvaluetype = typeof selectedpopulationvalue;
+								if (selectedpopulationvaluetype !== "string")
+									{
+										var selectedpopulationvalue = selectedpopulationvalue.toString();
+									}									
+								
+								outcomesarraydatarow.push(selectedpopulationvalue);
+							}					
+
+						if (cancertreatpaircheck > -1)
+							{		
+								var cancertreatpairposition = headerloopcount;
+								var masterloopcount = 0;
+								var selectedpopulationvalue = null;
+								while (masterloopcount < newbasearray.length)
+									{
+										if (newbasearray[masterloopcount][patientposition] == selectedpatient)
+											{
+												var selectedpopulationvalue1 = newbasearray[masterloopcount][cancertypeposition];								
+													if (selectedpopulationvalue1 == "null" || selectedpopulationvalue1 == null || selectedpopulationvalue1 == "" || selectedpopulationvalue1 == "NULL")
+														{
+															if (selectedpopulationvalue1 !== 0)
+																{
+																	var selectedpopulationvalue1 = "Undefined";
+																}
+														}
+													
+													var selectedpopulationvalue1type = typeof selectedpopulationvalue1;
+													if (selectedpopulationvalue1type !== "string")
+														{
+															var selectedpopulationvalue1 = selectedpopulationvalue1.toString();
+														}													
+														
+												
+												var selectedpopulationvalue2 = newbasearray[masterloopcount][treatmentposition];
+													if (selectedpopulationvalue2 == "null" || selectedpopulationvalue2 == null || selectedpopulationvalue2 == "" || selectedpopulationvalue2 == "NULL")
+														{
+															if (selectedpopulationvalue2 !== 0)
+																{
+																	var selectedpopulationvalue2 = "Undefined";
+																}
+														}
+													
+													var selectedpopulationvalue2type = typeof selectedpopulationvalue2;
+													if (selectedpopulationvalue2type !== "string")
+														{
+															var selectedpopulationvalue2 = selectedpopulationvalue2.toString();
+														}	
+
+
+												var mergedcancertypetreatmentpair = selectedpopulationvalue1 + " - " + selectedpopulationvalue2;										
+												var masterloopcount = 999999999999999999;
+											}
+										masterloopcount++;
+									}
+								outcomesarraydatarow.push(mergedcancertypetreatmentpair);
+							}
+
+
+						if (stylecheck1 > -1)
+							{
+								var styleposition1 = headerloopcount;
+								
+								var masterloopcount = 0;
+								var colorstyleinsert = null;
+								while (masterloopcount < newbasearray.length)
+									{
+										if (newbasearray[masterloopcount][patientposition] == selectedpatient)
+											{
+												var cancertypevalue = newbasearray[masterloopcount][cancertypeposition];
+												var cancertypeshapeposition = cancertypelist.indexOf(cancertypevalue);
+												var selectedshape = cancertypeshapesarray[cancertypeshapeposition];
+												
+												var treatmentvalue = newbasearray[masterloopcount][treatmentposition];
+												var treatmentcolorposition = treatmentlist.indexOf(treatmentvalue);
+												var selectedcolor = treatmentcolorsarray[treatmentcolorposition];
+												
+												var colorstyleinsert = 'point { size: 14; shape-type: ' + selectedshape + '; stroke-color: ' + selectedcolor + '; stroke-width: 3 }';
+												
+												//////Creating Array for Symbol and Color Identification in Selection Menus
+												var mergedpairidentifier = cancertypevalue + " - " + treatmentvalue;
+												var selectedshapehtmlcode = cancertypeshapesarrayhtmlcodes[cancertypeshapeposition];
+												var singleformatarray = [mergedpairidentifier,selectedshapehtmlcode,selectedcolor];
+												var countX = 0;
+												var checkerX = 0;
+												while (countX < cancertreatpairsselectionformat.length)
+													{
+														if (cancertreatpairsselectionformat[countX][0] == singleformatarray[0])
+															{
+																var checkerX = 9999999;
+																var countX = 9999999;
+															}
+														countX++;
+													}							
+												if (checkerX < 1)
+													{
+														cancertreatpairsselectionformat.push(singleformatarray);
+													}
+													
+													
+												var masterloopcount = 999999999999999999;
+											}
+										masterloopcount++;
+									}
+								
+								outcomesarraydatarow.push(colorstyleinsert);
+							}
+					
+
+						if (stylecheck2 > -1)
+							{
+								var styleposition2 = headerloopcount;
+								
+								var masterloopcount = 0;
+								var colorstyleinsert = null;
+								while (masterloopcount < newbasearray.length)
+									{
+										if (newbasearray[masterloopcount][patientposition] == selectedpatient)
+											{
+												var cancertypevalue = newbasearray[masterloopcount][cancertypeposition];
+												var cancertypeshapeposition = cancertypelist.indexOf(cancertypevalue);
+												var selectedshape = cancertypeshapesarray[cancertypeshapeposition];
+												
+												var treatmentvalue = newbasearray[masterloopcount][treatmentposition];
+												var treatmentcolorposition = treatmentlist.indexOf(treatmentvalue);
+												var selectedcolor = treatmentcolorsarray[treatmentcolorposition];
+												
+												var colorstyleinsert = 'point { size: 9; shape-type: ' + selectedshape + '; stroke-color: ' + selectedcolor + '; stroke-width: 2';
+												
+												//////Creating Array for Symbol and Color Identification in Selection Menus
+												var mergedpairidentifier = cancertypevalue + " - " + treatmentvalue;
+												var selectedshapehtmlcode = cancertypeshapesarrayhtmlcodes[cancertypeshapeposition];
+												var singleformatarray = [mergedpairidentifier,selectedshapehtmlcode,selectedcolor];
+												var countX = 0;
+												var checkerX = 0;
+												while (countX < cancertreatpairsselectionformat.length)
+													{
+														if (cancertreatpairsselectionformat[countX][0] == singleformatarray[0])
+															{
+																var checkerX = 999999;
+																var countX = 999999;
+															}
+														countX++;
+													}							
+												if (checkerX < 1)
+													{
+														cancertreatpairsselectionformat.push(singleformatarray);
+													}
+													
+													
+												var masterloopcount = 999999999999999999;
+											}
+										masterloopcount++;
+									}
+								
+								outcomesarraydatarow.push(colorstyleinsert);
+							}
+			
+
+						
+						headerloopcount++;
+					}
+				MasterOutcomesArray.push(outcomesarraydatarow);
+				AllRowsArray.push(patientcount);
+				patientcount++;
+				
+			}
+		
+		var AllArrays = [MasterOutcomesArray, AllRowsArray, cancertreatpairsselectionformat];
+		return AllArrays;
+}
+
+
+////Functions for Selectable Filters///////////
+////Functions for Selectable Filters///////////
+////Functions for Selectable Filters///////////
+
+///Determine which outcomes are selected////
+function determineselectedoutcomes(outcomeslist) {
+	
+	count = 0;
+	var checkedoutcomes = [];
+	while (count < outcomeslist.length)
+		{
+		var tempvalue1 = outcomeslist[count];
+		var tempvalue2 = document.getElementById(tempvalue1);
+		if (tempvalue2.checked){checkedoutcomes.push(tempvalue1);}
+		count++;
+		};
+	if (checkedoutcomes.length < 1) {alert("You have not selected an outcome. You will see the default selection (" + outcomeslist[0] +")");};
+	
+	return checkedoutcomes;
+}
+
+
+function determineselectedtimepoints(timepointlist) {
+	count = 0;
+	var checkedtimepoints = [];
+	while (count < timepointlist.length)
+		{
+		var tempvalue1 = timepointlist[count];
+		var tempvalue2 = document.getElementById(tempvalue1);
+		if (tempvalue2.checked){checkedtimepoints.push(tempvalue1);}
+		count++;
+		var tempvalue3 = document.getElementById('SelectAllTimepoints');
+		if (tempvalue3.checked)
+			{
+				checkedtimepoints = timepointlist;
+				count = 9999999999999;
+			}
+		}	
+	if (checkedtimepoints.length < 1) 
+		{
+			alert("You must select at least one timepoint. You will see the defualt timepoint (Day " + timepointlist[0] + ")");
+			checkedtimepoints.push(timepointlist[0]);
+		}
+	
+	return checkedtimepoints;
+}
+
+
+
+////Determine Which Parameters Are Selected///
+function determineselectedparameters(populationlist) {
+	count = 0;
+	var checkedparameters = [];
+	while (count < populationlist.length)
+		{
+		var tempvalue1 = populationlist[count];
+		var tempvalue2 = document.getElementById(tempvalue1);
+		if (tempvalue2.checked){checkedparameters.push(tempvalue1);}
+		count++;
+		var tempvalue3 = document.getElementById('SelectAllParameters');
+		if (tempvalue3.checked)
+			{
+				checkedparameters = populationlist;
+				count = 9999999999999;
+			}
+		};
+	if (checkedparameters.length < 1) 
+		{
+			alert("You must select at least one parameter. You will see the default (" + populationlist[0] + ")");
+			checkedparameters.push(populationlist[0]);
+		};
+	
+	return checkedparameters;
+}
+
+////Determine Which Cohorts Are Selected/////
+function determineselectedcohorts(cancertypetreatpairrowsarray, AllRowsArray) {
+
+	count = 0;
+	var checkedcohorts = [];
+	while (count < cancertypetreatpairrowsarray.length)
+		{
+		var tempvalue1 = cancertypetreatpairrowsarray[count][0];
+		var tempvalue2 = document.getElementById(tempvalue1);
+		if (tempvalue2.checked)
+			{
+				var subsetrows = cancertypetreatpairrowsarray[count][1];
+				var countZ = 0;
+				while (countZ < subsetrows.length)
+					{
+						checkedcohorts.push(subsetrows[countZ]);
+						countZ++;
+					}
+			}
+		count++;
+		var tempvalue3 = document.getElementById('SelectAllcancertreatpairs');
+		if (tempvalue3.checked)
+			{
+				checkedcohorts = AllRowsArray;
+				count = 9999999999999;
+			}
+		};
+	if (checkedcohorts.length < 1) 
+		{
+			alert("You must select at least one cohort. You will now see the default (all cohorts).");
+			checkedcohorts = AllRowsArray;
+		};
+		
+	return checkedcohorts;
+}
+
+
+/////Determine Which Groups Are Selected/////
+function determineselectedgroups(AllGroupSubsetArrays) {
+	
+	var groupsubsetuniquelist = AllGroupSubsetArrays[0];
+	var groupsubsetrowarray = AllGroupSubsetArrays[1];
+	var count = 0;
+	var checkedgroups = [];
+	var checkedgroupsnames = [];
+	var parentgroupnames = [];
+	
+	var tempvalue3 = document.getElementById('SelectAllGroups');
+	if (tempvalue3.checked)
+		{
+			var count = 0;
+			while (count < groupsubsetuniquelist.length)
+				{
+					var tempvalue1 = groupsubsetuniquelist[count];
+					var subsetrows = [];
+					var subsetrows = groupsubsetrowarray[count];
+					checkedgroups.push(subsetrows);
+					checkedgroupsnames.push(tempvalue1);
+					var parentgroupvaluedelimiter = tempvalue1.indexOf(":");
+					var parentgroupvalue = tempvalue1.substring(0,parentgroupvaluedelimiter);
+					parentgroupnames.push(parentgroupvalue);
+					count++;
+				}
+		}
+	else
+		{
+			var count = 0;
+			while (count < groupsubsetuniquelist.length)
+				{	
+					var tempvalue1 = groupsubsetuniquelist[count];
+					var tempvalue2 = document.getElementById(tempvalue1);
+					if (tempvalue2.checked)
+						{
+							var subsetrows = [];
+							var subsetrows = groupsubsetrowarray[count];
+							checkedgroups.push(subsetrows);
+							checkedgroupsnames.push(tempvalue1);
+							var parentgroupvaluedelimiter = tempvalue1.indexOf(":");
+							var parentgroupvalue = tempvalue1.substring(0,parentgroupvaluedelimiter);
+							parentgroupnames.push(parentgroupvalue);
+						}
+					count++;
+				}
+		}
+	if (checkedgroups.length < 1) 
+		{
+			alert("You must select at least one groups. You will now see the default (all groups).");
+
+			var count = 0;
+			while (count < groupsubsetuniquelist.length)
+				{
+					var tempvalue1 = groupsubsetuniquelist[count];
+					var subsetrows = [];
+					var subsetrows = groupsubsetrowarray[count];
+					checkedgroups.push(subsetrows);
+					checkedgroupsnames.push(tempvalue1);
+					var parentgroupvaluedelimiter = tempvalue1.indexOf(":");
+					var parentgroupvalue = tempvalue1.substring(0,parentgroupvaluedelimiter);
+					parentgroupnames.push(parentgroupvalue);
+					count++;
+				}
+			
+		}
+	
+	var groupselectionarrays = [checkedgroups, checkedgroupsnames, parentgroupnames];
+	return groupselectionarrays;
+}
+
+
+
+//////Resolve Group Row Selections////////	
+/////Construct Unique Group Parent List and Concatenated Row lists////
+function getrowsforgroupselections(parentgroupnames, checkedgroups, checkedgroupsnames) {
+
+	var uniqueparentlistnames = [];
+	var simplifiedparentrowarray = [];
+	var newrowarray = [];
+	
+	var count = 0;
+	while (count < parentgroupnames.length)
+		{
+			var selectedparentgroupname = parentgroupnames[count];
+			var newrowarray = checkedgroups[count];
+			var uniqueparentcheck = uniqueparentlistnames.indexOf(selectedparentgroupname);
+			
+			if (uniqueparentcheck == -1)
+				{
+					uniqueparentlistnames.push(selectedparentgroupname);
+					var existingarray = newrowarray;
+				}
+			if (uniqueparentcheck > -1)
+				{
+					var arraytoappend = newrowarray;
+					var combinedarray = existingarray.concat(arraytoappend);
+					var existingarray = combinedarray;
+				}
+			if (parentgroupnames[(count + 1)] !== selectedparentgroupname)
+				{
+					simplifiedparentrowarray.push(existingarray);
+				}	
+			count++;
+		}
+
+/////////////NEED TO COMBINE ROW SETS WITHIN GROUP PARENTS//////////////////
+//////Resolve Group Row Selections////////
+	var finalgrouprowlist = [];
+	var count = 0;
+	while (count < simplifiedparentrowarray.length)
+		{
+			var count2 = 0;
+			while (count2 < simplifiedparentrowarray[count].length)
+				{
+					var selectedgrouprow = simplifiedparentrowarray[count][count2];
+					var sharedvalue = 1;
+					var count3 = 0;
+					while (count3 < simplifiedparentrowarray.length)
+						{	
+							var rowsubsettocheck = simplifiedparentrowarray[count3];
+							var sharedchecker = rowsubsettocheck.indexOf(selectedgrouprow);
+							if (sharedchecker < 0)
+								{
+									var sharedvalue = -1;
+								}
+							count3++;
+						}				
+				
+					if (sharedvalue > 0)
+						{
+							var uniquecheck = finalgrouprowlist.indexOf(selectedgrouprow);
+							if (uniquecheck < 0)
+								{
+									finalgrouprowlist.push(selectedgrouprow);
+								}
+						}
+					count2++;
+				}
+			count++;
+		}
+
+/////Apply -1 to each row value in the group list to make it match the format (start at 0) for the Google Charts visualization
+	
+	var finalgrouprowlistADJUSTED = [];
+	var count = 0;
+	while (count < finalgrouprowlist.length)
+		{
+			var adjustedvalue = finalgrouprowlist[count] - 1;
+			finalgrouprowlistADJUSTED.push(adjustedvalue);
+			count++;
+		}
+
+	return finalgrouprowlistADJUSTED;
+}
+	
+	
+/////Resolve the Rows to Show (Integrate Groups and Cohorts Selections)////	
+function integrategroupandcohortrows(checkedcohorts, finalgrouprowlistADJUSTED, styleposition1, styleposition2) {
+	var CohortRowsToShow = checkedcohorts;
+	var GroupRowsToShow = finalgrouprowlistADJUSTED;
+	var ResolvedRowsToShow = [];
+	var count = 0;
+	while (count < GroupRowsToShow.length)
+		{
+			var RowToCheck = GroupRowsToShow[count];
+			var RowToCheckValue = CohortRowsToShow.indexOf(RowToCheck);
+			if (RowToCheckValue > -1)
+				{
+					ResolvedRowsToShow.push(RowToCheck);
+				}
+			count++;
+		}
+
+	if (ResolvedRowsToShow.length < 1)
+		{
+			alert("There are no individuals that meet all of the selected parameters (groups and cohorts). As a placeholder, group selections will be ignored.");
+			ResolvedRowsToShow = CohortRowsToShow;
+		}
+
+	var RowsToShow = ResolvedRowsToShow;
+	////Assign Style Parameters Based on Number of Rows
+	if (RowsToShow.length < 30 )
+		{
+			var adaptivestyle = styleposition1;
+		}
+	else
+		{
+			var adaptivestyle = styleposition2;
+		}
+	
+	var ResolvedRowsReturn = [RowsToShow, adaptivestyle];
+	return ResolvedRowsReturn;
+}
+
+
+////Determine Which Columns to Show/////
+function definecolumnstoshow(MasterOutcomesArray, checkedoutcomes, checkedtimepoints, checkedparameters, adaptivestyle, firstoutcomeposition, firstpopulationposition,styleposition1) {
+
+	var ColumnsToShow = [];
+	var OutcomeCount = 0;
+	var nullalert = -1;
+
+	var count = 1;
+	while (count < MasterOutcomesArray[0].length) {
+		var SelectedColumn = MasterOutcomesArray[0][count];
+
+		
+		//Check if Outcome is Selected
+		var count2 = 0;
+		
+		var OutcomeValueInIndex = -1;
+		while (count2 < checkedoutcomes.length) {
+			var SelectedValue = checkedoutcomes[count2];
+			var ValueChecker = SelectedColumn.indexOf(SelectedValue);
+			if (ValueChecker > -1) {
+				var OutcomeValueInIndex = 1;
+				
+				var nullcheck = -1;
+				var nullcount = 1;
+				while (nullcount < MasterOutcomesArray.length)
+					{
+						var checkvalue = MasterOutcomesArray[nullcount][count];
+						if (checkvalue != null)
+							{
+								var nullcheck = 1;
+								var nullcount = 999999999999;
+							}
+						nullcount++;
+					}
+				if (nullcheck == 1)
+					{
+						ColumnsToShow.push(count);
+						var SelectedRadioOutcome = MasterOutcomesArray[0][count];
+						OutcomeCount = 9999999999;
+					}
+			}
+			count2++;
+		}
+
+		///////////////////////
+		///////////////////////////
+		/////////////////////////
+		//////////////////////
+		//Check if Timepoint is Selected
+		var count2 = 0;
+		var TimepointValueInIndex = -1;
+		while (count2 < checkedtimepoints.length) { 
+			var SelectedValue = checkedtimepoints[count2] + ":";
+					
+			var timepointcolonposition = SelectedColumn.indexOf(":");
+			var columntimepoint = SelectedColumn.substring(0, (timepointcolonposition + 1));
+			
+			if (columntimepoint == SelectedValue) {
+				var TimepointValueInIndex = 1;
+			}
+			count2++;
+		}
+			
+
+		//Check if Parameter is Selected
+		var count2 = 0;
+		var ParameterValueInIndex = -1;
+		while (count2 < checkedparameters.length) {
+			var SelectedValue = checkedparameters[count2];
+			var ValueChecker = SelectedColumn.indexOf(SelectedValue);
+			if (ValueChecker > -1) {
+				var ParameterValueInIndex = 1;
+				}
+			count2++;
+		}		
+
+		if (TimepointValueInIndex == 1 && ParameterValueInIndex == 1) 
+			{
+				var nullcheck = -1;
+				var nullcount = 1;
+				while (nullcount < MasterOutcomesArray.length)
+					{
+						var checkvalue = MasterOutcomesArray[nullcount][count];
+						if (checkvalue != null && checkvalue > -10000000)
+							{
+								var nullcheck = 1;
+								var nullcount = 999999999999;
+							}
+						nullcount++;
+					}
+				if (nullcheck == 1)
+					{
+						ColumnsToShow.push(count,adaptivestyle);
+					}
+				else {var nullalert = 1;}
+			}
+		
+		count++;
+	}
+
+
+	if (nullalert == 1) {alert("Some of the selected relationships do not have data. Only relationships with sufficient data will be shown.");}
+	if (ColumnsToShow.length < 2 || OutcomeCount < 1) 
+		{
+			alert("There is no data for any of the selected relationships, you will see a default view");
+			var ColumnsToShow = [];
+			ColumnsToShow.push(firstoutcomeposition,firstpopulationposition,styleposition1);
+		}
+
+	return ColumnsToShow;
+}
+
+
+
+//////Determine Updated Chart Titles After Selection////
+function determineupdatedcharttitles(ColumnsToShow, MasterOutcomesArray, checkedoutcomes) {
+
+	var vAxisTitle = "Parameter";
+	var hAxisTitle = checkedoutcomes[0];
+	var charttitle = "Parameters vs " + checkedoutcomes[0];
+	var titleTextStyle = {fontSize: 25, bold: true};
+	
+	if (ColumnsToShow.length == 3)
+		{
+			var tempcolumnposition = ColumnsToShow[1];
+			var tempheader = MasterOutcomesArray[0][tempcolumnposition];
+			var firstcolonposition = tempheader.indexOf(":");
+			var tempparameter = tempheader.substring((firstcolonposition + 2), tempheader.length);
+			var vAxisTitle = tempparameter;
+			var charttitle = tempparameter + " vs " + checkedoutcomes[0];	
+		}
+	
+	if (charttitle.length > 40)
+		{
+			var titleTextStyle = {fontSize: 18, bold: true};
+		}
+
+	if (charttitle.length > 85)
+		{
+			var titleTextStyle = {fontSize: 12, bold: true};
+		}
+	
+	var alltitles = [vAxisTitle, hAxisTitle, charttitle, titleTextStyle];
+	
+	return alltitles;
+}
+
+
+
+/////Function to Build Selection Boxes////
+/////Function to Build Selection Boxes////
+
+///Build Outcomes Selection Boxes///
+function buildoutcomesselectionboxes(outcomeslist) {
+	
+	var outcomescheckboxeshtml = "";;
+	count = 0;
+	while (count < outcomeslist.length)
+		{
+		outcomescheckboxeshtml += '<div><input type="radio" '; 
+		if (count == 0)
+			{
+				outcomescheckboxeshtml += ' checked="checked" ';
+			}
+		outcomescheckboxeshtml += 'id="';
+		outcomescheckboxeshtml += outcomeslist[count];
+		outcomescheckboxeshtml += '" name="outcomes" > ';
+		outcomescheckboxeshtml += outcomeslist[count];
+		outcomescheckboxeshtml += '<br></div>';
+		count++;
+		}
+	
+	return outcomescheckboxeshtml;
+}
+
+
+	///Build Timepoint Selection Boxes///
+function buildtimepointselectionboxes(timepointlist) {
+	var timepointcheckboxeshtml = '<div><input type="checkbox" id="SelectAllTimepoints" name="SelectAllTimepoints" ><b>Select All</b><br></div>';	
+	count = 0;
+	while (count < timepointlist.length)
+		{
+		timepointcheckboxeshtml += '<div><input type="checkbox" ';
+		if (count == 0)
+			{
+				timepointcheckboxeshtml += ' checked="checked" ';
+			}
+		timepointcheckboxeshtml += ' id="';
+		timepointcheckboxeshtml += timepointlist[count];
+		timepointcheckboxeshtml += '" name="';
+		timepointcheckboxeshtml += timepointlist[count];
+		timepointcheckboxeshtml += '" <b>Day ';
+		timepointcheckboxeshtml += timepointlist[count];
+		timepointcheckboxeshtml += '</b><br></div>';
+		count++;
+		}
+
+	return timepointcheckboxeshtml;
+}
+
+
+	////Build CancerType-Treatment Pair (Cohort) Selection Boxes////
+function buildcohortselectionboxes(cancertypetreatmentpairlist, NEWCancerTypeTreatmentShapeColorFormats) {
+
+	var cancertreatpaircheckboxeshtml = '<div><input type="checkbox" id="SelectAllcancertreatpairs" name="SelectAllcancertreatpairs" checked="checked"><b>Select All</b><br></div>';	
+
+	var tempcancertreatpairlist = [];
+	var countx = 0;
+	while (countx < cancertypetreatmentpairlist.length)
+		{
+			var temparrayvalue = cancertypetreatmentpairlist[countx];
+			tempcancertreatpairlist.push(temparrayvalue);
+			countx++;
+		}
+	var sortedcancertreatpairlist = tempcancertreatpairlist.sort();
+
+	var count = 0;
+	while (count < sortedcancertreatpairlist.length)
+		{
+			var selectedpair = sortedcancertreatpairlist[count];
+			var positionofspacer = selectedpair.indexOf(" - ");
+			var selectedcancertype = selectedpair.substring(0,positionofspacer);
+			var selectedtreatment = selectedpair.substring((positionofspacer + 3),selectedpair.length);
+			var countY = 0;
+			
+			while (countY < NEWCancerTypeTreatmentShapeColorFormats.length)
+				{
+					if (selectedpair == NEWCancerTypeTreatmentShapeColorFormats[countY][0])
+						{
+							var selectedshapetemp = NEWCancerTypeTreatmentShapeColorFormats[countY][1];
+							var selectedcolortemp = NEWCancerTypeTreatmentShapeColorFormats[countY][2];
+							
+							cancertreatpaircheckboxeshtml += '<div><input type="checkbox" id="';
+							cancertreatpaircheckboxeshtml += selectedpair;
+							cancertreatpaircheckboxeshtml += '" name="';
+							cancertreatpaircheckboxeshtml += selectedpair;
+							cancertreatpaircheckboxeshtml += '" <b>';
+							cancertreatpaircheckboxeshtml += selectedcancertype;
+							cancertreatpaircheckboxeshtml += ' (';
+							cancertreatpaircheckboxeshtml += selectedshapetemp;
+							cancertreatpaircheckboxeshtml += '): <u style="color: ';
+							cancertreatpaircheckboxeshtml += selectedcolortemp;
+							cancertreatpaircheckboxeshtml +='">';
+							cancertreatpaircheckboxeshtml += selectedtreatment;
+							cancertreatpaircheckboxeshtml +='</u></b><br></div>';
+							
+							var countY = 9999999999;
+						}
+					countY++;
+				}
+			count++;
+		}
+	
+	return cancertreatpaircheckboxeshtml;
+}
+
+
+	/////Build Parameter Selection Boxes/////	
+function buildparameterselectionboxes(populationlist) {	
+	var parametercheckboxeshtml = '<div><input type="checkbox" id="SelectAllParameters" name="SelectAllParameters" ><b>Select All</b><br></div>';	
+
+	var sortedpopulationlist = populationlist;
+
+	var count = 0;
+	while (count < sortedpopulationlist.length)
+		{
+		parametercheckboxeshtml += '<div><input type="checkbox" id="';
+		parametercheckboxeshtml += sortedpopulationlist[count];
+		parametercheckboxeshtml += '" name="';
+		parametercheckboxeshtml += sortedpopulationlist[count];
+		parametercheckboxeshtml += '" ';
+		if (count == 0)
+			{
+				parametercheckboxeshtml += 'checked="checked" ';
+			}
+		parametercheckboxeshtml += '<b>';
+		parametercheckboxeshtml += sortedpopulationlist[count];
+		parametercheckboxeshtml += '</b><br></div>';
+		count++;
+		}
+	
+	return parametercheckboxeshtml;
+}
+
+
+	/////Build Group Selection Boxes////
+function buildgroupselectionboxes(groupsubsetuniquelist) {
+
+	var groupscheckboxeshtml = '<div><input type="checkbox" id="SelectAllGroups" name="SelectAllGroups" checked="checked"><b>Select All</b><br></div>';	
+
+	var tempgroupsubsetlist = [];
+	var countx = 0;
+	while (countx < groupsubsetuniquelist.length)
+		{
+			var temparrayvalue = groupsubsetuniquelist[countx];
+			tempgroupsubsetlist.push(temparrayvalue);
+			countx++;
+		}
+	var sortedgroupsubsetuniquelist = tempgroupsubsetlist.sort();
+
+	var count = 0;
+	while (count < sortedgroupsubsetuniquelist.length)
+		{
+			var selectedgroup = sortedgroupsubsetuniquelist[count];
+			var simpleselectedgroup = selectedgroup.substring(8,selectedgroup.length);
+
+			groupscheckboxeshtml += '<div><input type="checkbox" id="';
+			groupscheckboxeshtml += selectedgroup;
+			groupscheckboxeshtml += '" name="';
+			groupscheckboxeshtml += selectedgroup;
+			groupscheckboxeshtml += '" <b>';
+			groupscheckboxeshtml += simpleselectedgroup;
+			groupscheckboxeshtml += '</b><br></div>';
+			count++;
+		}
+	
+	return groupscheckboxeshtml;
+}
+
+
+	////Populate Selection Boxes////////
+
+	function populateselectionboxes(outcomescheckboxeshtml, timepointcheckboxeshtml, cancertreatpaircheckboxeshtml, parametercheckboxeshtml, groupscheckboxeshtml) {
+		$("#outcomes").html(outcomescheckboxeshtml);
+		$("#timepoints").html(timepointcheckboxeshtml);
+		$("#cancertypetreatmentpair").html(cancertreatpaircheckboxeshtml);
+		$("#parameters").html(parametercheckboxeshtml);
+		$("#groups").html(groupscheckboxeshtml);
+	}
+
+
+
+	////////Processing Data for Statistical Analyses and Defining Relationships/////////////////////////
+	////////Processing Data for Statistical Analyses and Defining Relationships/////////////////////////
+
+//Construct Lists of Outcomes and Parameters with Position in MasterOutcomesArray Values//
+function defineoutcomeandparameterLABELSandPOSITIONS(MasterOutcomesArray) {	
+	var MasterArrayparameterpositions = [];
+	var MasterArrayparameterlabels = [];
+
+	var MasterArrayoutcomepositions = [];
+	var MasterArrayoutcomelabels = [];
+
+	var count = 0;
+	while (count < MasterOutcomesArray[0].length)
+		{
+			var selectedcolumn = MasterOutcomesArray[0][count];
+			if (selectedcolumn.indexOf("Outcomes -") > -1)
+				{
+					MasterArrayoutcomepositions.push(count);
+					MasterArrayoutcomelabels.push(selectedcolumn);
+				}
+			if (selectedcolumn.indexOf(": ") > -1)
+				{
+					MasterArrayparameterpositions.push(count);
+					MasterArrayparameterlabels.push(selectedcolumn);
+				}				
+			count++;
+		}
+	
+	var outcomesandparametersLABELSandPOSITIONS = [MasterArrayoutcomelabels, MasterArrayoutcomepositions, MasterArrayparameterlabels, MasterArrayparameterpositions];
+	
+	return outcomesandparametersLABELSandPOSITIONS;
+}
+
+
+///////Create Arrays for Linear Regression BASIC RELATIONSHIPS////////
+function createarraysforlinearregressionTOTALRELATIONSHIPS(MasterArrayoutcomelabels, MasterArrayoutcomepositions, MasterArrayparameterlabels, MasterArrayparameterpositions, MasterOutcomesArray) {
+	var lrArray = [];
+	var r2list = [];
+	var SelectedOutcome = "undefined";
+	var SelectedPopulation = "undefined";
+	var SelectedParameter2 = "none";
+	var SelectedGroup = "ALL";
+	var SelectedCohort = "ALL";
+
+	var OutcomesCount = 0;
+	while (OutcomesCount < MasterArrayoutcomelabels.length)
+		{
+			var SelectedOutcome = MasterArrayoutcomelabels[OutcomesCount];
+			var SelectedOutcomePosition = MasterArrayoutcomepositions[OutcomesCount];
+			
+			var PopulationsCount = 0;
+			while (PopulationsCount < MasterArrayparameterlabels.length)
+				{
+					var SelectedPopulation = MasterArrayparameterlabels[PopulationsCount];
+					var SelectedPopulationPosition = MasterArrayparameterpositions[PopulationsCount];			
+					
+						var XaxisOutcome = [];
+						var YaxisParameter = [];
+						var Information = [];
+						var MasterCount = 1;
+
+						while (MasterCount < MasterOutcomesArray.length)
+							{
+								var SelectedOutcomeValue = MasterOutcomesArray[MasterCount][SelectedOutcomePosition];
+								var SelectedPopulationValue = MasterOutcomesArray[MasterCount][SelectedPopulationPosition];
+								
+								
+								if ((SelectedOutcomeValue !== null) && (SelectedPopulationValue !== null))
+									{
+										var PatientID = MasterOutcomesArray[MasterCount][0];
+										XaxisOutcome.push(SelectedOutcomeValue);
+										YaxisParameter.push(SelectedPopulationValue);
+										Information.push([PatientID, SelectedOutcome, SelectedPopulation]);
+									}
+								MasterCount++; 
+							}
+						
+						if (XaxisOutcome.length > 7)
+							{	
+								
+								var CorrelationInputArray = calculatelinearregressionandpvalue(XaxisOutcome, YaxisParameter, SelectedOutcome, SelectedPopulation);
+								CorrelationInputArray.push(SelectedOutcome, SelectedPopulation, SelectedParameter2, SelectedGroup, SelectedCohort);
+								lrArray.push(CorrelationInputArray);				
+							}
+							
+					PopulationsCount++;
+				}
+			OutcomesCount++;
+		}
+	//Sort and display r2 values
+	lrArray.sort(function(a,b){
+		return a[0] - b[0];
+	});
+
+	
+	return lrArray;
+}
+
+
+	/////////Cohort RELATIONSHIPS//////////////////
+	///////Create Arrays for Linear Regression////////
+function createarraysforlinearregressionCOHORTRELATIONSHIPS(MasterArrayoutcomelabels, MasterArrayoutcomepositions, MasterArrayparameterlabels, MasterArrayparameterpositions, cancertypetreatpairrowsarray, MasterOutcomesArray) {	
+	var cohortlrArray = [];
+	var cohortr2list = [];
+	var SelectedOutcome = "undefined";
+	var SelectedPopulation = "undefined";
+	var SelectedParameter2 = "none";
+	var SelectedGroup = "ALL";
+	var SelectedCohort = "ALL";
+	var OutcomesCount = 0;
+	while (OutcomesCount < MasterArrayoutcomelabels.length)
+		{
+			var SelectedOutcome = MasterArrayoutcomelabels[OutcomesCount];
+			var SelectedOutcomePosition = MasterArrayoutcomepositions[OutcomesCount];
+			
+			
+			var PopulationsCount = 0;
+			while (PopulationsCount < MasterArrayparameterlabels.length)
+				{
+					
+					var SelectedPopulation = MasterArrayparameterlabels[PopulationsCount];
+					var SelectedPopulationPosition = MasterArrayparameterpositions[PopulationsCount];			
+					
+						var MasterCount = 0;
+						while (MasterCount < cancertypetreatpairrowsarray.length)
+							{
+								var tempcohort = cancertypetreatpairrowsarray[MasterCount][0];
+								var SelectedCohort = tempcohort;
+								var temprowarray = cancertypetreatpairrowsarray[MasterCount][2];
+								var XaxisOutcome = [];
+								var YaxisParameter = [];
+								var Information = [];
+								
+								var RowCount = 0;
+								while (RowCount < temprowarray.length)
+									{
+										var temprowvalue = temprowarray[RowCount];
+										
+										var SelectedPopulationValue = MasterOutcomesArray[temprowvalue][SelectedPopulationPosition];
+										var SelectedOutcomeValue = MasterOutcomesArray[temprowvalue][SelectedOutcomePosition];	
+								
+										if ((SelectedOutcomeValue !== null && isNaN(SelectedOutcomeValue) == false) && (SelectedPopulationValue !== null && isNaN(SelectedPopulationValue) == false))
+											{
+												var PatientID = MasterOutcomesArray[temprowvalue][0];
+												XaxisOutcome.push(SelectedOutcomeValue);
+												YaxisParameter.push(SelectedPopulationValue);
+												Information.push([PatientID, SelectedOutcome, SelectedPopulation]);
+											}
+										RowCount++; 
+									}
+						
+								if (XaxisOutcome.length > 7)
+									{
+										var CorrelationInputArray = calculatelinearregressionandpvalue(XaxisOutcome, YaxisParameter, SelectedOutcome, SelectedPopulation);
+										CorrelationInputArray.push(SelectedOutcome, SelectedPopulation, SelectedParameter2, SelectedGroup, SelectedCohort);
+										cohortlrArray.push(CorrelationInputArray);
+									}
+								MasterCount++;
+							}
+					PopulationsCount++;
+				}
+			OutcomesCount++;
+		}
+		
+
+		//Sort and display r2 values//
+		cohortlrArray.sort(function(a,b){
+			return a[0] - b[0];
+		});
+		
+		
+		return cohortlrArray;
+	}
+	
+	
+	/////////GROUP RELATIONSHIPS//////////////////
+	///////Create Arrays for Linear Regression////////
+function createarraysforlinearregressionGROUPRELATIONSHIPS(MasterArrayoutcomelabels, MasterArrayoutcomepositions, MasterArrayparameterlabels, MasterArrayparameterpositions, mergedgroupsubsetpairnamesandrows, MasterOutcomesArray) {	
+		
+	var lrArray = [];
+	var r2list = [];
+	var SelectedOutcome = "undefined";
+	var SelectedPopulation = "undefined";
+	var SelectedParameter2 = "none";
+	var SelectedGroup = "ALL";
+	var SelectedCohort = "ALL";
+
+	var OutcomesCount = 0;
+	while (OutcomesCount < MasterArrayoutcomelabels.length)
+		{
+			var SelectedOutcome = MasterArrayoutcomelabels[OutcomesCount];
+			var SelectedOutcomePosition = MasterArrayoutcomepositions[OutcomesCount];
+			
+			
+			var PopulationsCount = 0;
+			while (PopulationsCount < MasterArrayparameterlabels.length)
+				{
+					var SelectedPopulation = MasterArrayparameterlabels[PopulationsCount];
+					var SelectedPopulationPosition = MasterArrayparameterpositions[PopulationsCount];			
+						
+						var MasterCount = 0;
+						while (MasterCount < mergedgroupsubsetpairnamesandrows.length)
+							{
+								
+								var tempgroup = mergedgroupsubsetpairnamesandrows[MasterCount][0];
+								var SelectedGroup = tempgroup;
+								var temprowarray = mergedgroupsubsetpairnamesandrows[MasterCount][1];
+								var XaxisOutcome = [];
+								var YaxisParameter = [];
+								var Information = [];
+								
+								var RowCount = 0;
+								while (RowCount < temprowarray.length)
+									{
+										
+										var temprowvalue = temprowarray[RowCount];
+										var SelectedOutcomeValue = MasterOutcomesArray[temprowvalue][SelectedOutcomePosition];
+										var SelectedPopulationValue = MasterOutcomesArray[temprowvalue][SelectedPopulationPosition];	
+								
+										if ((SelectedOutcomeValue !== null && isNaN(SelectedOutcomeValue) == false) && (SelectedPopulationValue !== null && isNaN(SelectedPopulationValue) == false))
+											{
+												var PatientID = MasterOutcomesArray[temprowvalue][0];
+												XaxisOutcome.push(SelectedOutcomeValue);
+												YaxisParameter.push(SelectedPopulationValue);
+												Information.push([PatientID, SelectedOutcome, SelectedPopulation]);
+											}
+										RowCount++; 
+									}
+						
+								if (XaxisOutcome.length > 7)
+									{
+										
+										var CorrelationInputArray = calculatelinearregressionandpvalue(XaxisOutcome, YaxisParameter, SelectedOutcome, SelectedPopulation);
+										CorrelationInputArray.push(SelectedOutcome, SelectedPopulation, SelectedParameter2, SelectedGroup, SelectedCohort);
+										lrArray.push(CorrelationInputArray);
+									}
+								MasterCount++;
+							}
+					PopulationsCount++;
+				}
+			OutcomesCount++;
+		}
+		
+	//Sort and display r2 values
+	lrArray.sort(function(a,b){
+		return a[0] - b[0];
+	});
+	
+	return lrArray;
+}
+
+
+	/////////Cohort/Group RELATIONSHIPS//////////////////
+	///////Create Arrays for Linear Regression////////
+function createarraysforlinearregressionCOHORTGROUPRELATIONSHIPS(MasterArrayoutcomelabels, MasterArrayoutcomepositions, MasterArrayparameterlabels, MasterArrayparameterpositions, cohortgrouppairsandrows, MasterOutcomesArray) {	
+	
+	var lrArray = [];
+	var r2list = [];
+	var SelectedOutcome = "undefined";
+	var SelectedPopulation = "undefined";
+	var SelectedParameter2 = "none";
+	var SelectedGroup = "ALL";
+	var SelectedCohort = "ALL";
+
+	var OutcomesCount = 0;
+	while (OutcomesCount < MasterArrayoutcomelabels.length)
+		{
+			var SelectedOutcome = MasterArrayoutcomelabels[OutcomesCount];
+			var SelectedOutcomePosition = MasterArrayoutcomepositions[OutcomesCount];
+			
+			
+			var PopulationsCount = 0;
+			while (PopulationsCount < MasterArrayparameterlabels.length)
+				{
+					var SelectedPopulation = MasterArrayparameterlabels[PopulationsCount];
+					var SelectedPopulationPosition = MasterArrayparameterpositions[PopulationsCount];			
+						
+						var MasterCount = 0;
+						while (MasterCount < cohortgrouppairsandrows.length)
+							{
+								
+								var XaxisOutcome = [];
+								var YaxisParameter = [];
+								var Information = [];
+								var tempcohort = cohortgrouppairsandrows[MasterCount][0];
+								var SelectedCohort = tempcohort;
+								var tempgroup = cohortgrouppairsandrows[MasterCount][1];
+								var SelectedGroup = tempgroup;
+								var temprowarray = cohortgrouppairsandrows[MasterCount][2];
+								
+								var RowCount = 0;
+								while (RowCount < temprowarray.length)
+									{
+										var temprowvalue = temprowarray[RowCount];
+										var SelectedOutcomeValue = MasterOutcomesArray[temprowvalue][SelectedOutcomePosition];
+										var SelectedPopulationValue = MasterOutcomesArray[temprowvalue][SelectedPopulationPosition];	
+								
+										if ((SelectedOutcomeValue !== null && isNaN(SelectedOutcomeValue) == false) && (SelectedPopulationValue !== null && isNaN(SelectedPopulationValue) == false))
+											{
+												var PatientID = MasterOutcomesArray[temprowvalue][0];
+												XaxisOutcome.push(SelectedOutcomeValue);
+												YaxisParameter.push(SelectedPopulationValue);
+												Information.push([PatientID, SelectedOutcome, SelectedPopulation]);
+											}
+										RowCount++; 
+									}
+						
+								if (XaxisOutcome.length > 7)
+									{
+										var CorrelationInputArray = calculatelinearregressionandpvalue(XaxisOutcome, YaxisParameter, SelectedOutcome, SelectedPopulation);
+										CorrelationInputArray.push(SelectedOutcome, SelectedPopulation, SelectedParameter2, SelectedGroup, SelectedCohort);
+										lrArray.push(CorrelationInputArray);
+									}
+								MasterCount++;
+							}
+					PopulationsCount++;
+				}
+			OutcomesCount++;
+		}
+			
+
+	//Sort and display r2 values
+	lrArray.sort(function(a,b){
+		return a[0] - b[0];
+	});
+	
+	return lrArray;
+}
+
+
+////Organize Relationships and Populate DIVs////
+////Organize Relationships and Populate DIVs////
+////Organize Relationships and Populate DIVs////
+
+///Organize Basic (Total) Relationships and Populate Div///
+function organizeTOTALRELATIONSHIPS(lrArray) {
+
+	//r2 values Relationship Boxes and Array
+	var relationshipscompletearray = [];
+	relationshipscompletearray.push(["P VALUE","R2","R2 {adjusted}","SLOPE","INTERCEPT","SAMPLE SIZE","OUTCOME","PARAMETER1","PARAMETER2","GROUP","COHORT"]);
+
+	var relationshipshtml = "<div>";	
+	count = 0;
+	while (count < lrArray.length)
+		{
+		var temppvalue = lrArray[count][0];
+		var tempr2 = lrArray[count][1];
+		var temp4r2 = lrArray[count][2];
+		var tempslope = lrArray[count][3];
+		var tempintercept = lrArray[count][4];
+		var tempsamplesize = lrArray[count][5];
+		var tempoutcome = lrArray[count][6];
+		var tempparameter1 = lrArray[count][7];
+		var tempparameter2 = lrArray[count][8];
+		var tempgroup = lrArray[count][9];
+		var tempcohort = lrArray[count][10];
+		relationshipscompletearray.push([temppvalue,tempr2,temp4r2,tempslope,tempintercept,tempsamplesize,tempoutcome,tempparameter1,tempparameter2,tempgroup,tempcohort]);
+		
+		if (count < 400) {
+			relationshipshtml += '<b>P Value: ';
+			relationshipshtml += temppvalue;
+			relationshipshtml += '</b>, r2: ';
+			relationshipshtml += tempr2;
+			relationshipshtml += ', r2 {adj}: ';
+			relationshipshtml += temp4r2;
+			relationshipshtml += '<br><b>Timepoint-Parameter: </b><u> Day ';
+			relationshipshtml += tempparameter1;
+			relationshipshtml += '</u><br><b>Outcome: </b><u>';
+			relationshipshtml += tempoutcome;
+			relationshipshtml += '</u><br><br>';
+			}
+		
+		count++;
+		}
+	relationshipshtml += '</div>';
+
+	var TOTALRELATIONSHIPSINFO = [relationshipscompletearray, relationshipshtml];
+	
+	return TOTALRELATIONSHIPSINFO;
+}
+
+
+	////Organize Cohort Relationships/////
+function organizeCOHORTRELATIONSHIPS(RAWcohortlrArray) {
+	
+	//////r2 values Relationship Boxes and Array////////
+	var cohortrelationshipscompletearray = [];
+	cohortrelationshipscompletearray.push(["P VALUE","R2","R2 {adjusted}","SLOPE","INTERCEPT","SAMPLE SIZE","OUTCOME","PARAMETER1","PARAMETER2","GROUP","COHORT"]);
+
+	var cohortrelationshipshtml = "<div>";	
+	count = 0;
+	while (count < RAWcohortlrArray.length)
+		{
+		var temppvalue = RAWcohortlrArray[count][0];
+		var tempr2 = RAWcohortlrArray[count][1];
+		var temp4r2 = RAWcohortlrArray[count][2];
+		var tempslope = RAWcohortlrArray[count][3];
+		var tempintercept = RAWcohortlrArray[count][4];
+		var tempsamplesize = RAWcohortlrArray[count][5];
+		var tempoutcome = RAWcohortlrArray[count][6];
+		var tempparameter1 = RAWcohortlrArray[count][7];
+		var tempparameter2 = RAWcohortlrArray[count][8];
+		var tempgroup = RAWcohortlrArray[count][9];
+		var tempcohort = RAWcohortlrArray[count][10];
+		cohortrelationshipscompletearray.push([temppvalue,tempr2,temp4r2,tempslope,tempintercept,tempsamplesize,tempoutcome,tempparameter1,tempparameter2,tempgroup,tempcohort]);
+
+		if (count < 400) {
+			cohortrelationshipshtml += '<b>P Value: ';
+			cohortrelationshipshtml += temppvalue;
+			cohortrelationshipshtml += '</b>, r2: ';
+			cohortrelationshipshtml += tempr2;
+			cohortrelationshipshtml += ', r2 {adj}: ';
+			cohortrelationshipshtml += temp4r2;
+			cohortrelationshipshtml += '<br><b>Timepoint-Parameter: </b><u>Day ';
+			cohortrelationshipshtml += tempparameter1;
+			cohortrelationshipshtml += '</u><br><b>Outcome: </b><u>';
+			cohortrelationshipshtml += tempoutcome;
+			cohortrelationshipshtml += '</u><br><b>Cohort: </b>';
+			cohortrelationshipshtml += tempcohort;
+			cohortrelationshipshtml += '<br><br>';
+		}
+
+		count++;
+		}
+	cohortrelationshipshtml += '</div>';
+	
+	var COHORTRELATIONSHIPSINFO = [cohortrelationshipscompletearray, cohortrelationshipshtml];
+	
+	return COHORTRELATIONSHIPSINFO;
+}
+
+
+////Organize Group Relationships////
+function organizeGROUPRELATIONSHIPS(lrArray) {
+	//////r2 values Relationship Boxes and Array////////
+	var grouprelationshipscompletearray = [];
+	grouprelationshipscompletearray.push(["P VALUE","R2","R2 {adjusted}","SLOPE","INTERCEPT","SAMPLE SIZE","OUTCOME","PARAMETER1","PARAMETER2","GROUP","COHORT"]);
+
+	var grouprelationshipshtml = "<div>";	
+	count = 0;
+	while (count < lrArray.length)
+		{
+		var tempPvalue = lrArray[count][0];
+		var tempr2 = lrArray[count][1];
+		var temp4r2 = lrArray[count][2];
+		var tempslope = lrArray[count][3];
+		var tempintercept = lrArray[count][4];
+		var tempsamplesize = lrArray[count][5];
+		var tempoutcome = lrArray[count][6];
+		var tempparameter1 = lrArray[count][7];
+		var tempparameter2 = lrArray[count][8];
+		var tempgroup = lrArray[count][9];
+		var tempcohort = lrArray[count][10];
+		grouprelationshipscompletearray.push([tempPvalue,tempr2,temp4r2,tempslope,tempintercept,tempsamplesize,tempoutcome,tempparameter1,tempparameter2,tempgroup,tempcohort]);
+		
+		if (count < 400) {
+			grouprelationshipshtml += '<b>P Value: ';
+			grouprelationshipshtml += tempPvalue;
+			grouprelationshipshtml += '</b>, r2: ';
+			grouprelationshipshtml += tempr2;
+			grouprelationshipshtml += ', r2 {adj}: ';
+			grouprelationshipshtml += temp4r2;
+			grouprelationshipshtml += '<br><b>Timepoint-Parameter: </b><u>Day ';
+			grouprelationshipshtml += tempparameter1;
+			grouprelationshipshtml += '</u><br><b>Outcome: </b><u>';
+			grouprelationshipshtml += tempoutcome;
+			grouprelationshipshtml += '</u><br><b>Group: </b>';
+			grouprelationshipshtml += tempgroup;
+			grouprelationshipshtml += '<br><br>';
+		}
+		
+		count++;
+		}
+	grouprelationshipshtml += '</div>';
+
+	var GROUPRELATIONSHIPSINFO = [grouprelationshipscompletearray, grouprelationshipshtml];
+	
+	return GROUPRELATIONSHIPSINFO;
+}
+
+
+////Organize Cohort-Group Relationships////
+function organizeCOHORTGROUPRELATIONSHIPS(lrArray) {
+	//////r2 values Relationship Boxes and Array////////
+	var cohortgrouprelationshipscompletearray = [];
+	cohortgrouprelationshipscompletearray.push(["P VALUE","R2","R2 {adjusted}","SLOPE","INTERCEPT","SAMPLE SIZE","OUTCOME","PARAMETER1","PARAMETER2","GROUP","COHORT"]);
+
+	var cohortgrouprelationshipshtml = "<div>";	
+	count = 0;
+	while (count < lrArray.length)
+		{
+		var tempPvalue = lrArray[count][0];
+		var tempr2 = lrArray[count][1];
+		var temp4r2 = lrArray[count][2];
+		var tempslope = lrArray[count][3];
+		var tempintercept = lrArray[count][4];
+		var tempsamplesize = lrArray[count][5];
+		var tempoutcome = lrArray[count][6];
+		var tempparameter1 = lrArray[count][7];
+		var tempparameter2 = lrArray[count][8];
+		var tempgroup = lrArray[count][9];
+		var tempcohort = lrArray[count][10];
+		cohortgrouprelationshipscompletearray.push([tempPvalue,tempr2,temp4r2,tempslope,tempintercept,tempsamplesize,tempoutcome,tempparameter1,tempparameter2,tempgroup,tempcohort]);
+		
+		if (count < 400) {
+			cohortgrouprelationshipshtml += '<b>P Value: ';
+			cohortgrouprelationshipshtml += tempPvalue;
+			cohortgrouprelationshipshtml += '</b>, r2: ';
+			cohortgrouprelationshipshtml += tempr2;
+			cohortgrouprelationshipshtml += ', r2 {adj}: ';
+			cohortgrouprelationshipshtml += temp4r2;
+			cohortgrouprelationshipshtml += '<br><b>Timepoint-Parameter: </b><u>Day ';
+			cohortgrouprelationshipshtml += tempparameter1;
+			cohortgrouprelationshipshtml += '</u><br><b>Outcome: </b><u>';
+			cohortgrouprelationshipshtml += tempoutcome;
+			cohortgrouprelationshipshtml += '</u><br><b>Cohort: </b>';
+			cohortgrouprelationshipshtml += tempcohort;
+			cohortgrouprelationshipshtml += '<br><b>Group: </b>';
+			cohortgrouprelationshipshtml += tempgroup;
+			cohortgrouprelationshipshtml += '<br><br>';
+		}
+		
+		count++;
+		}
+	cohortgrouprelationshipshtml += '</div>';
+
+	var COHORTGROUPRELATIONSHIPSINFO = [cohortgrouprelationshipscompletearray, cohortgrouprelationshipshtml];
+	
+	return COHORTGROUPRELATIONSHIPSINFO;
+}
+
+
+
+/////Populate Relationship DIVS////
+/////Populate Relationship DIVS////
+function populaterelationshipdivs(relationshipshtml, cohortrelationshipshtml, grouprelationshipshtml, cohortgrouprelationshipshtml) {
+	
+	$("#relationships").html(relationshipshtml);
+	$("#cohortrelationships").html(cohortrelationshipshtml);
+	$("#grouprelationships").html(grouprelationshipshtml);
+	$("#cohortgrouprelationships").html(cohortgrouprelationshipshtml);
+}
+
+
+
+//////GOOGLE SCATTER CHART RELATED FUNCTIONS//////
+//////GOOGLE SCATTER CHART RELATED FUNCTIONS//////
+//////GOOGLE SCATTER CHART RELATED FUNCTIONS//////
+//////GOOGLE SCATTER CHART RELATED FUNCTIONS//////
+
+//////Google SCATTER CHART Options Creation//////
+//////Google SCATTER CHART Options Creation//////
+function defineSCATTERCHARTOPTIONS(SCATTERCHARTtitle, SCATTERCHARTtitleTextStyle, SCATTERCHARTchartArea, SCATTERCHARTpointSize, SCATTERCHARTlegend, SCATTERCHARTvAxisTitle, SCATTERCHARThAxisTitle) {
+
+	var options = {
+			  title: SCATTERCHARTtitle,
+			  titleTextStyle: SCATTERCHARTtitleTextStyle,
+			  chartArea:SCATTERCHARTchartArea,
+			  pointSize: SCATTERCHARTpointSize,
+			  legend: SCATTERCHARTlegend,
+			  interpolateNulls: true,
+			  animation: {
+				duration: 700,
+				},
+			  vAxis: {title: SCATTERCHARTvAxisTitle, titleTextStyle: {bold: true, fontSize:16}},
+			  hAxis: {title: SCATTERCHARThAxisTitle, titleTextStyle: {bold: true, fontSize:22}},
+			  trendlines: {
+					0: {pointSize: 2, showR2: true, visibleInLegend: true},
+					1: {pointSize: 2, showR2: true, visibleInLegend: true},
+					2: {pointSize: 2, showR2: true, visibleInLegend: true},
+					3: {pointSize: 2, showR2: true, visibleInLegend: true},
+					4: {pointSize: 2, showR2: true, visibleInLegend: true},
+					5: {pointSize: 2, showR2: true, visibleInLegend: true},
+					6: {pointSize: 2, showR2: true, visibleInLegend: true},
+					7: {pointSize: 2, showR2: true, visibleInLegend: true},
+					8: {pointSize: 2, showR2: true, visibleInLegend: true},
+					9: {pointSize: 2, showR2: true, visibleInLegend: true},
+					10: {pointSize: 2, showR2: true, visibleInLegend: true}		
+				}
+		};
+	
+	return options;
+}
+
+
+/////Create Columns for Google Scatter Chart (Outcomes Analysis)///////
+/////Create Columns for Google Scatter Chart (Outcomes Analysis)///////
+function createcolumnsforgooglescatterchart(MasterOutcomesArray, PopulationData) {
+ 	
+	//Column Creation
+	PopulationData.addColumn('string', 'PatientID');
+				
+	//Column Creation Loop
+	var count = 1;
+	while (count < MasterOutcomesArray[0].length) 
+		{
+					var selectedheadervalue = MasterOutcomesArray[0][count];
+					
+					var outcomesindexcheck = -1;
+					var populationindexcheck = -1;
+					var groupsindexcheck = -1;
+					var cancertypecheck = -1;
+					var treatmentcheck = -1;
+					var cancertreatpaircheck = -1;
+					var stylecheck1 = -1;
+					var stylecheck2 = -1;
+					
+					var outcomesindexcheck = selectedheadervalue.indexOf("Outcomes");
+					var populationindexcheck = selectedheadervalue.indexOf(":");
+					var groupsindexcheck = selectedheadervalue.indexOf("Group -");
+					var cancertypecheck = selectedheadervalue.indexOf("CancerType");
+					var treatmentcheck = selectedheadervalue.indexOf("Treatment");
+					var cancertreatpaircheck = selectedheadervalue.indexOf("CancerTreatPair");
+					var stylecheck1 = selectedheadervalue.indexOf("Style1");
+					var stylecheck2 = selectedheadervalue.indexOf("Style2");
+
+					if (outcomesindexcheck > -1 || populationindexcheck > -1) {
+						PopulationData.addColumn('number', MasterOutcomesArray[0][count]);
+						var typereport = typeof MasterOutcomesArray[1][count];
+						var testreport = "The column: " + MasterOutcomesArray[0][count] + " has been added as a number. The inserted value is a " + typereport;
+					}
+					
+					if (groupsindexcheck > -1 || cancertypecheck > -1 || treatmentcheck > -1 || cancertreatpaircheck > -1)
+						{
+							PopulationData.addColumn('string', MasterOutcomesArray[0][count]);
+							var typereport = typeof MasterOutcomesArray[1][count];
+							var testreport = "The column: " + MasterOutcomesArray[0][count] + " has been added as a string. The inserted value is a " + typereport;
+						}
+					
+					if (stylecheck1 > -1)
+						{
+							PopulationData.addColumn({type:'string', role:'style'});
+						}
+					
+					if (stylecheck2 > -1)
+						{
+							PopulationData.addColumn({type:'string', role:'style'});
+						}					
+					count++;
+		}
+		
+		return PopulationData;
+}
+
+
+/////Populate Rows into Google Scatter Chart//////
+/////Populate Rows into Google Scatter Chart//////
+function populaterowsintogooglescatterchart(MasterOutcomesArray, PopulationData) {
+	var count = 1;
+	while (count < MasterOutcomesArray.length) 
+		{
+			var RowArray = MasterOutcomesArray[count];
+			PopulationData.addRow(RowArray);
+			count++;
+		}
+	
+	return PopulationData;
+}
+
+
+///////Copy Array to String////
+//function copyarraytostring(newbasearray) {
+//var arraystringcopy = "[";
+//var count = 0;
+//while (count < newbasearray.length)
+//	{
+//		arraystringcopy += "[";
+//		
+//		var count2 = 0;
+//		while (count2 < newbasearray[count].length)
+//			{
+//				var selectedelement = "'" + newbasearray[count][count2] + "',";
+//				arraystringcopy += selectedelement;
+//				count2++;
+//			}
+//		arraystringcopy = arraystringcopy.slice(0, -1);
+//		arraystringcopy += "],";
+//		count++;
+//	}
+//arraystringcopy = arraystringcopy.slice(0, -1);
+//arraystringcopy += "];";
+// }
+
+
+function analyzeArray(newbasearray) {
+
+	///////////Timepoint Module////////////////
+	var timepointposition = determinetimepointposition(newbasearray);
+
+	//Calculate Number of Timepoints and Construct List/////
+	var timepointlist = createsortedtimepointlistwithdifferentials(newbasearray, timepointposition);
+
+
+	/////////Patient Module///////////////
+	//Determine Patient Position
+	var patientposition = determinepatientposition(newbasearray);
+
+	//Calculate Number of Patients and Construct List
+	var patientlist = createsortedpatientlist(newbasearray, patientposition);
+
+
+	///////////Population Module///////////////////////// 
+
+	//Calculate Number of Populations and Construct Sorted List
+	var sortedpopulationlistarray = createsortedpopulationlistarray(newbasearray);
+	var populationlist = sortedpopulationlistarray[0];
+	var populationlistindex = sortedpopulationlistarray[1];
+
+	//Calculate Number of Outcomes and Construct List//
+	var allthreeoutcomesarrays = createsortedoutcomeslistarray(newbasearray);
+	var outcomeslist = allthreeoutcomesarrays[0];
+	var outcomeslistindex = allthreeoutcomesarrays[1];
+
+
+	/////////  Groups Module //////////////////// 
+	//Calculate Number of Groups and Construct List
+	var allthreegroupsarray = createsortedgroupslistarray(newbasearray);
+	var groupslist = allthreegroupsarray[0];
+	var groupslistindex = allthreegroupsarray[1];
+
+
+	/////////Cancer Type Module///////////////
+
+	///Determine CancerType Position////
+	var cancertypeposition = determinecancertypeposition(newbasearray);
+
+	//Calculate Number of Cancer Types and Construct List
+	var cancertypelist = createsortedcancertypelist(newbasearray, cancertypeposition);
+
+
+
+	/////////Treatment Module///////////////
+
+	//Determine Treatment Position
+	var treatmentposition = determinetreatmentposition(newbasearray);
+
+	//Calculate Number of Treatments and Construct List
+	var treatmentlist = createsortedtreatmentlist(newbasearray, treatmentposition);
+
+
+	/////////CancerType-Treatment Pairs Module (Create Cohorts)///////////////
+
+	//Calculate Number of Treatments and Construct List
+
+	var cancertypetreatmentpairlist = createcancertypetreatmentpairlist(newbasearray, cancertypeposition, treatmentposition);
+
+
+	///////////////Timepoint-Parameter Module/////////////////////
+	//Build Array Headers (Timepoint-Parameter) List
+	var timepointparameterpairslist = createtimepointparameterpairslist(timepointlist, populationlist);
+
+
+	//Create Outcomes Array Headers//
+	var outcomesarrayheaders = constructoutcomesarrayheaders(outcomeslist, groupslist, timepointparameterpairslist);
+
+
+	/////Use Function to Create MasterOutcomesArray////
+	var AllOutcomesArrays = createMasterOutcomesArray(newbasearray, cancertypeshapesarray, cancertypeshapesarrayhtmlcodes, treatmentcolorsarray, cancertreatpairsselectionformat, timepointposition, timepointlist, patientposition, patientlist, populationlist, populationlistindex, outcomeslist, outcomeslistindex, groupslist, groupslistindex, cancertypeposition, cancertypelist, treatmentposition, treatmentlist, cancertypetreatmentpairlist, timepointparameterpairslist, outcomesarrayheaders);
+	var MasterOutcomesArray = AllOutcomesArrays[0];
+	var AllRowsArray = AllOutcomesArrays[1];
+	var NEWCancerTypeTreatmentShapeColorFormats = AllOutcomesArrays[2];
+
+	///Define CancerType-TreatPair Position on Master Array
+	var cancertreatpairposition = determinecancertypetreatmentpairposition(MasterOutcomesArray);
+	var styleposition1 = determinestyleposition1(MasterOutcomesArray);
+	var styleposition2 = determinestyleposition2(MasterOutcomesArray);
+
+	////Create Stable All Rows Array
+	var AllRowsArraySTABLE = createstableduplicatearray(AllRowsArray);
+
+
+	////Determine Initial Outcome Position in Array////
+	var firstoutcomeposition = determinefirstoutcomeposition(MasterOutcomesArray);
+
+
+	////Determine Initial Population Position in Array///
+	var firstpopulationposition = determinefirstpopulationposition(MasterOutcomesArray);
+
+
+	////////CancerType-Treatment Pair Row Array///////////
+	cancertypetreatpairrowsarray = createcancertypetreatpairrowsarray(MasterOutcomesArray, cancertypetreatmentpairlist, cancertreatpairposition);
+
+
+	////////Groups Parent-Child Selection Construction and Rows Array///////////
+	var AllGroupSubsetArrays = creategroupsparentchildselectionandrowsarray(MasterOutcomesArray);
+	var groupsubsetuniquelist = AllGroupSubsetArrays[0];
+	var groupsubsetrowarray = AllGroupSubsetArrays[1];
+	var unadjustedgroupsubsetrowarray = AllGroupSubsetArrays[2];
+
+
+	//////Construct Single Array with Group-Subset Pairs and Row Arrays/////
+	var mergedgroupsubsetpairnamesandrows = createmergedgroupsubsetpairnamesandrowsarray(groupsubsetuniquelist, groupsubsetrowarray);
+
+
+	////////Construct Single Array with Cohort-Group Pairs and Row Arrays//////
+	var cohortgrouppairsandrows = createmergedcohortgrouppairsandrowsarray(cancertypetreatpairrowsarray, mergedgroupsubsetpairnamesandrows);
+
+	var PreservedGroupSubsetRowArray = groupsubsetrowarray;
+
+
+
+
+
+	//////////Instantiate SCATTER CHART////////////////////
+	//////////Instantiate SCATTER CHART////////////////////
+	function initializeChart(MasterOutcomesArray) {
+		
+		var PopulationData = new google.visualization.DataTable();
+
+		var PopulationData = createcolumnsforgooglescatterchart(MasterOutcomesArray, PopulationData);
+
+		//Populate Rows///
+
+		var PopulationData = populaterowsintogooglescatterchart(MasterOutcomesArray, PopulationData);
+
+		//Create Data View
+		var PopulationChartDataView = new google.visualization.DataView(PopulationData);
+		
+		///Define Global Baseline Columns and Rows To Show
+		var ColumnsToShow = [firstoutcomeposition,firstpopulationposition,styleposition1];
+		var RowsToShow = AllRowsArraySTABLE;
+		var SelectedRadioOutcome = MasterOutcomesArray[0][firstoutcomeposition];
+		var vAxisTitle =  MasterOutcomesArray[0][firstpopulationposition];
+		var cancertreatpairposition = determinecancertypetreatmentpairposition(MasterOutcomesArray);
+		
+		///Retrieve Actual Sample Info
+		function retrievesampleinformationSCATTERCHART(SelectedItemRow, SelectedItemColumn, MasterOutcomesArray) {
+								
+						var SelectedItemRow = SelectedItemRow + 1;
+						var SelectedItemColumnALLVALUES = SelectedItemColumn + 1;
+						var patientID = MasterOutcomesArray[SelectedItemRow][0];
+						var patientINFO = MasterOutcomesArray[SelectedItemRow][cancertreatpairposition];
+						var selectedpatientinfo = "<b>Patient ID:</b> " + patientID + ", <b>Cohort:</b> " + patientINFO;
+						$("#selectedpatientinfo").html(selectedpatientinfo);
+
+			}
+
+		////Baseline Chart Options//////
+		var SCATTERCHARTtitle = "Biomarkers vs Outcomes"; 
+		var SCATTERCHARTtitleTextStyle = {fontSize: 25, bold: true};
+		var SCATTERCHARTchartArea = {width: '65%', left:85, top:65};
+		var SCATTERCHARTpointSize = 20;
+		var SCATTERCHARTlegend = {textStyle: {fontSize: 14}};
+		var SCATTERCHARTvAxisTitle = vAxisTitle;
+		var SCATTERCHARThAxisTitle = SelectedRadioOutcome;
+	
+		///Define Data View///
+		PopulationChartDataView.setColumns(ColumnsToShow);
+		PopulationChartDataView.setRows(RowsToShow);
+
+		///Define Options
+		var options = defineSCATTERCHARTOPTIONS(SCATTERCHARTtitle, SCATTERCHARTtitleTextStyle, SCATTERCHARTchartArea, SCATTERCHARTpointSize, SCATTERCHARTlegend, SCATTERCHARTvAxisTitle, SCATTERCHARThAxisTitle);
+			
+		var chart = new google.visualization.ScatterChart(document.getElementById('linechart_material'));  
+
+		function drawChart(PopulationChartDataView, options, RowsToShow, ColumnsToShow, MasterOutcomesArray, cancertreatpairposition) {
+
+					google.visualization.events.removeAllListeners(chart);
+					
+					update.disabled = false;
+					google.visualization.events.addListener(chart, 'ready',
+					function() {
+						update.disabled = false;
+					});
+					
+					//////Listener To Display Patient Info///////				
+					function selectHandler() {
+						//alert("RowsToShow: " + RowsToShow);
+						//alert("ColumnsToShow: " + ColumnsToShow);
+						
+						var selectedItemPosition = []; 
+						var selectedItem = chart.getSelection()[0];
+						if (selectedItem)
+							{			
+								var SelectedItemRow = selectedItem.row;
+								var SelectedItemRow = RowsToShow[SelectedItemRow];
+								
+								var SelectedItemColumn = selectedItem.column;
+								var SelectedItemColumn = ColumnsToShow[SelectedItemColumn];								
+								
+								retrievesampleinformationSCATTERCHART(SelectedItemRow, SelectedItemColumn, MasterOutcomesArray);
+							}
+					}	
+							
+					google.visualization.events.addListener(chart, 'select', selectHandler);
+					
+					
+					
+					
+					chart.draw(PopulationChartDataView, options);
+			};
+
+		
+		drawChart(PopulationChartDataView, options, RowsToShow, ColumnsToShow, MasterOutcomesArray, cancertreatpairposition);		
+		
+
+		/////////Update Button Functions////////////
+		/////////Update Button Functions////////////
+		/////////Update Button Functions////////////
+
+		update.onclick = function() {
+
+			//Determine Which Outcomes Are Selected
+			var checkedoutcomes = determineselectedoutcomes(outcomeslist);
+			
+
+			//Determine Which Timepoints Are Selected
+			var checkedtimepoints = determineselectedtimepoints(timepointlist);
+
+			//Determine Which Parameters Are Selected
+			var checkedparameters = determineselectedparameters(populationlist);
+
+
+		/////////Determine Which Cohorts Are Selected////////
+			var checkedcohorts = determineselectedcohorts(cancertypetreatpairrowsarray, AllRowsArray);
+			
+
+		/////////Determine Which Groups Are Selected////////		
+		var groupselectionarrays = determineselectedgroups(AllGroupSubsetArrays);
+		var checkedgroups = groupselectionarrays[0];
+		var checkedgroupsnames = groupselectionarrays[1];
+		var parentgroupnames = groupselectionarrays[2];
+
+		/////////////NEED TO COMBINE ROW SETS WITHIN GROUP PARENTS//////////////////		
+		var finalgrouprowlistADJUSTED = getrowsforgroupselections(parentgroupnames, checkedgroups, checkedgroupsnames);
+		
+
+		////Define Data to Visualize
+
+		//////Resolve Cohorts vs Groups Rows to Show/////	
+		var ResolvedRowsReturn = integrategroupandcohortrows(checkedcohorts, finalgrouprowlistADJUSTED, styleposition1, styleposition2);
+		var RowsToShow = ResolvedRowsReturn[0];
+		var adaptivestyle = ResolvedRowsReturn[1];
+
+
+
+		///Determine Which Columns to Show
+		var ColumnsToShow = definecolumnstoshow(MasterOutcomesArray, checkedoutcomes, checkedtimepoints, checkedparameters, adaptivestyle, firstoutcomeposition, firstpopulationposition,styleposition1);
+
+
+
+		///////Update Chart Options////////
+		///////Update Chart Options////////
+		var alltitles = determineupdatedcharttitles(ColumnsToShow, MasterOutcomesArray, checkedoutcomes);
+		var SCATTERCHARTvAxisTitle = alltitles[0];
+		var SCATTERCHARThAxisTitle = alltitles[1];
+		var SCATTERCHARTtitle = alltitles[2];
+		var SCATTERCHARTtitleTextStyle = alltitles[3];
+		
+		var options = defineSCATTERCHARTOPTIONS(SCATTERCHARTtitle, SCATTERCHARTtitleTextStyle, SCATTERCHARTchartArea, SCATTERCHARTpointSize, SCATTERCHARTlegend, SCATTERCHARTvAxisTitle, SCATTERCHARThAxisTitle);
+		
+
+		///UPDATE Table Columns to Show
+		PopulationChartDataView.setColumns(ColumnsToShow);
+		PopulationChartDataView.setRows(RowsToShow);
+		drawChart(PopulationChartDataView, options, RowsToShow, ColumnsToShow, MasterOutcomesArray, cancertreatpairposition);
+
+		}
+		///////End of Update Function///////////////
+
+	};
+
+	initializeChart(MasterOutcomesArray);
+
+
+	//// Build Selection Checkboxes //////
+	//// Build Selection Checkboxes //////
+	//// Build Selection Checkboxes //////
+
+	//Build Outcomes Selection Boxes////
+	var outcomescheckboxeshtml = buildoutcomesselectionboxes(outcomeslist);
+
+	///Build Timepoint Selection Boxes///
+	var timepointcheckboxeshtml = buildtimepointselectionboxes(timepointlist);
+	
+	////Build CancerType-Treatment Pair (Cohort) Selection Boxes////
+	var cancertreatpaircheckboxeshtml = buildcohortselectionboxes(cancertypetreatmentpairlist, NEWCancerTypeTreatmentShapeColorFormats);
+
+	/////Build Parameter Selection Boxes/////
+	var parametercheckboxeshtml = buildparameterselectionboxes(populationlist);
+
+
+	/////Build Group Selection Boxes////
+	var groupscheckboxeshtml = buildgroupselectionboxes(groupsubsetuniquelist);
+
+	///Populate Selection Boxes////
+	$(function() {
+		populateselectionboxes(outcomescheckboxeshtml, timepointcheckboxeshtml, cancertreatpaircheckboxeshtml, parametercheckboxeshtml, groupscheckboxeshtml);
+		});
+
+
+
+	////////Processing Data for Statistical Analyses and Defining Relationships/////////////////////////
+	////////Processing Data for Statistical Analyses and Defining Relationships/////////////////////////
+	////////Processing Data for Statistical Analyses and Defining Relationships/////////////////////////
+
+
+	///Construct Lists of Outcomes and Parameters with Position in MasterOutcomesArray Values//
+		var outcomesandparametersLABELSandPOSITIONS = defineoutcomeandparameterLABELSandPOSITIONS(MasterOutcomesArray);
+		var MasterArrayoutcomelabels = outcomesandparametersLABELSandPOSITIONS[0];
+		var MasterArrayoutcomepositions = outcomesandparametersLABELSandPOSITIONS[1];
+		var MasterArrayparameterlabels = outcomesandparametersLABELSandPOSITIONS[2];
+		var MasterArrayparameterpositions = outcomesandparametersLABELSandPOSITIONS[3];
+
+
+
+	///////Create Arrays for Linear Regression BASIC RELATIONSHIPS////////
+	var lrArray = createarraysforlinearregressionTOTALRELATIONSHIPS(MasterArrayoutcomelabels, MasterArrayoutcomepositions, MasterArrayparameterlabels, MasterArrayparameterpositions, MasterOutcomesArray);
+
+	///Organize Basic (Total) Relationships and Populate Div///
+	var TOTALRELATIONSHIPSINFO = organizeTOTALRELATIONSHIPS(lrArray);
+	var relationshipscompletearray = TOTALRELATIONSHIPSINFO[0];
+	var relationshipshtml = TOTALRELATIONSHIPSINFO[1];
+
+
+	/////////Cohort RELATIONSHIPS//////////////////
+	///////Create Arrays for Linear Regression////////
+	var RAWcohortlrArray = createarraysforlinearregressionCOHORTRELATIONSHIPS(MasterArrayoutcomelabels, MasterArrayoutcomepositions, MasterArrayparameterlabels, MasterArrayparameterpositions, cancertypetreatpairrowsarray, MasterOutcomesArray);
+	
+	////Organize Cohort Relationships/////
+	var COHORTRELATIONSHIPSINFO = organizeCOHORTRELATIONSHIPS(RAWcohortlrArray);
+	var cohortrelationshipscompletearray = COHORTRELATIONSHIPSINFO[0];
+	var cohortrelationshipshtml = COHORTRELATIONSHIPSINFO[1];
+
+
+	/////////GROUP RELATIONSHIPS//////////////////
+	///////Create Arrays for Linear Regression////////
+	var lrArray = createarraysforlinearregressionGROUPRELATIONSHIPS(MasterArrayoutcomelabels, MasterArrayoutcomepositions, MasterArrayparameterlabels, MasterArrayparameterpositions, mergedgroupsubsetpairnamesandrows, MasterOutcomesArray);
+
+	////Organize Group Relationships////
+	var GROUPRELATIONSHIPSINFO = organizeGROUPRELATIONSHIPS(lrArray);
+	var grouprelationshipscompletearray = GROUPRELATIONSHIPSINFO[0];
+	var grouprelationshipshtml = GROUPRELATIONSHIPSINFO[1];
+
+
+
+
+	/////////Cohort/Group RELATIONSHIPS//////////////////
+	///////Create Arrays for Linear Regression////////
+	var lrArray = createarraysforlinearregressionCOHORTGROUPRELATIONSHIPS(MasterArrayoutcomelabels, MasterArrayoutcomepositions, MasterArrayparameterlabels, MasterArrayparameterpositions, cohortgrouppairsandrows, MasterOutcomesArray);
+
+	////Organize Cohort-Group Relationships////
+	var COHORTGROUPRELATIONSHIPSINFO = organizeCOHORTGROUPRELATIONSHIPS(lrArray);
+	var cohortgrouprelationshipscompletearray = COHORTGROUPRELATIONSHIPSINFO[0];
+	var cohortgrouprelationshipshtml = COHORTGROUPRELATIONSHIPSINFO[1];
+
+
+	////////Populate Relationships DIVs///////
+	$(function () {
+	populaterelationshipdivs(relationshipshtml, cohortrelationshipshtml, grouprelationshipshtml, cohortgrouprelationshipshtml);
+	//$("#arraydownload").html(arraystringcopy);
+	});
+
+	/////////////////Export Relationships to CSV/////////////////
+
+	function downloadFile(fileName, urlData) {
+
+		var aLink = document.createElement('a');
+		var evt = document.createEvent("HTMLEvents");
+		evt.initEvent("click");
+		aLink.download = fileName;
+		aLink.href = urlData;
+		aLink.dispatchEvent(evt);
+	}
+
+	//////Export Basic Relationships//////////
+	$("#exportrelationships").click(function(){
+			var datastring = "";
+			var csvContent = "";
+			
+			var count = 0;
+			relationshipscompletearray.forEach(function(infoArray, index){
+				if (count < 4000)
+					{
+						dataString = infoArray.join(",");
+						csvContent += dataString + "\n";
+						count++;
+					}
+			});
+
+			var encodedUri = encodeURIComponent(csvContent);
+			downloadFile('BasicRelationships.csv', 'data:text/csv;charset=UTF-8,' + encodedUri);
+		});
+		
+	//////Export Cohort Relationships//////////
+	$("#exportcohortrelationships").click(function(){
+			var datastring = "";
+			var csvContent = "";
+			
+			var count = 0;
+			cohortrelationshipscompletearray.forEach(function(infoArray, index){
+				if (count < 4000)
+					{
+						dataString = infoArray.join(",");
+						csvContent += dataString + "\n";
+						count++;
+					}
+			});
+
+			var encodedUri = encodeURIComponent(csvContent);
+			downloadFile('CohortRelationships.csv', 'data:text/csv;charset=UTF-8,' + encodedUri);
+		});	
+
+	//////Export Group Relationships//////////
+	$("#exportgrouprelationships").click(function(){
+			var datastring = "";
+			var csvContent = "";
+			
+			var count = 0;
+			grouprelationshipscompletearray.forEach(function(infoArray, index){
+				if (count < 4000)
+					{
+						dataString = infoArray.join(",");
+						csvContent += dataString + "\n";
+						count++;
+					}
+			});
+
+			var encodedUri = encodeURIComponent(csvContent);
+			downloadFile('GroupRelationships.csv', 'data:text/csv;charset=UTF-8,' + encodedUri);
+		});	
+
+	//////Export Cohort-Group Relationships//////////
+	$("#exportcohortgrouprelationships").click(function(){
+			var datastring = "";
+			var csvContent = "";
+			
+			var count = 0;
+			cohortgrouprelationshipscompletearray.forEach(function(infoArray, index){
+				if (count < 4000)
+					{
+						dataString = infoArray.join(",");
+						csvContent += dataString + "\n";
+						count++;
+					}
+			});
+
+			var encodedUri = encodeURIComponent(csvContent);
+			downloadFile('CohortGroupRelationships.csv', 'data:text/csv;charset=UTF-8,' + encodedUri);
+		});	
+
+		
+}
+
+$(document).ready(function() {
+
+//////Show or Hide Additional Options
+$("#hideadditionaloptions").click(function(){
+		$("#expandedselectors").toggle();
+		$("#minimizeselectors").toggle();
+		$("#maximizeselectors").toggle();	
+	});
+$("#showadditionaloptions").click(function(){
+		$("#expandedselectors").toggle();
+		$("#minimizeselectors").toggle();
+		$("#maximizeselectors").toggle();	
+	});
+/////Show or Hide Base Options
+$("#hidebaseoptions").click(function(){
+		$("#minimizebaseoptions").toggle();
+		$("#maximizebaseoptions").toggle();
+		$("#baseoptionsdiv").toggle();
+	});
+$("#showbaseoptions").click(function(){
+		$("#minimizebaseoptions").toggle();
+		$("#maximizebaseoptions").toggle();
+		$("#baseoptionsdiv").toggle();
+	});
+/////Show or Hide Deep Stats
+$("#hidedeepstats").click(function(){
+		$("#minimizedeepstats").toggle();
+		$("#maximizedeepstats").toggle();
+		$("#deepstatsdiv").toggle();
+	});
+$("#showdeepstats").click(function(){
+		$("#minimizedeepstats").toggle();
+		$("#maximizedeepstats").toggle();
+		$("#deepstatsdiv").toggle();
+	});
+
+
+});
+
+
+
+
+
+
+</script>
+</head>
+<body>
+<div id="bigcontainer" style="width: 90%; height: 85%;padding:5px" >
+	<div id="headerbuttons" style="width: 100%; height: 5%;font-size:1vw">
+		<table style="width: 100%; height: 100%">
+			<tr style="width: 100%; height: 100%">
+				<td style="width: 45%">
+					<div id="inputs" class="clearfix">
+						<input type="file" id="files" name="files[]" multiple=""><b>&larr; Upload CSV file.</b>
+					</div>
+				</td>
+				<td style="width: 45%">
+					<div id="selectedpatientinfo">
+						Selected Patient Information.
+					</div>
+				</td>
+			</tr>
+		</table>
+	</div>
+
+	<div style="width: 100%; height: 55%">
+		<table style="width: 100%; height: 100%">
+			<tr>
+				<td>
+					<div id='linechart_material' style="height:100%;width:100%"><br><br>If this message is not replaced by a chart after you load your CSV file, you have a problem</div>
+				</td>
+			</tr>
+		</table>
+	</div>
+	
+	<div style="width: 100%; height: 40%">
+		<div id="buttondiv" style="width:100%;height:10%;margin:5px;padding:10px">
+			<table style="width: 100%; height: 100%">
+				<tr style="height:100%">
+					<td style="width:25%">
+						<button id="update" style="padding:7px;margin:4px;border-radius:10px;background-color:WhiteSmoke;border-color:Black;font-size:0.9vw"><b>Visualize selected relationships</b></button>
+					</td>
+					<td style="width:30%">
+						<div id="minimizebaseoptions">
+							<button id="hidebaseoptions" style="padding:7px;margin:4px;border-radius:10px;background-color:WhiteSmoke;border-color:Red;font-size:0.9vw"><b>Hide Outcomes/Timepoints/Parameters Options</b></button>
+						</div>
+						<div id="maximizebaseoptions" style="display:none">
+							<button id="showbaseoptions" style="padding:7px;margin:4px;border-radius:10px;background-color:WhiteSmoke;border-color:Green;font-size:0.9vw"><b>Show Outcomes/Timepoints/Parameters Options</b></button>
+						</div>
+					</td>
+					<td style="width:30%">
+						<div id="minimizeselectors">
+							<button id="showadditionaloptions" style="padding:7px;margin:4px;border-radius:10px;background-color:WhiteSmoke;border-color:Green;font-size:0.9vw"><b>Show Cohorts/Groups/Relationships Options</b></button>
+						</div>
+						<div id="maximizeselectors" style="display:none">
+							<button id="hideadditionaloptions" style="padding:7px;margin:4px;border-radius:10px;background-color:WhiteSmoke;border-color:Red;font-size:0.9vw"><b>Hide Cohorts/Groups/Relationships Options</b></button>
+						</div>	
+					</td>
+					<td style="width:15%">
+						<div id="minimizedeepstats">
+							<button id="showdeepstats" style="padding:7px;margin:4px;border-radius:10px;background-color:WhiteSmoke;border-color:Green;font-size:0.9vw"><b>Show Deep Stats</b></button>
+						</div>
+						<div id="maximizedeepstats" style="display:none">
+							<button id="hidedeepstats" style="padding:7px;margin:4px;border-radius:10px;background-color:WhiteSmoke;border-color:Red;font-size:0.9vw"><b>Hide Deep Stats</b></button>
+						</div>	
+					</td>
+				</tr>
+			</table>
+		</div>
+
+		<div id="baseoptionsdiv" style="width: 100%; height: 80%">
+			<table style="width: 100%; height: 100%">
+				<tr style="height:15%">
+					<td style="padding:5px;background-color:Cornsilk;vertical-align:top;border-radius:10px;width:40%;font-size:1vw">
+						<em><b>Outcomes</b></em>
+					</td>
+								
+					<td style="padding:5px;background-color:Gainsboro;vertical-align:top;border-radius:10px;width:30%;font-size:1vw">
+						<em><b>Timepoints</b></em>
+					</td>
+					
+					<td  style="padding:5px;background-color:PaleGreen;vertical-align:top;border-radius:10px;width:30%;font-size:1vw">
+						<em><b>Parameters</b></em>
+					</td>
+				</tr>
+							
+				<tr style="height:85%">
+					<td style="padding:5px;background-color:Cornsilk;vertical-align:top;border-radius:10px;width:40%">
+						<div style="height:100%;overflow: auto;font-size:1vw">
+							<div id="outcomes">
+								This is where outcomes will be populated. 	
+							</div>
+						</div>
+					</td>
+								
+					<td style="padding:5px;background-color:Gainsboro;vertical-align:top;border-radius:10px;width:30%">
+						<div style="height:100%;overflow: auto;font-size:1vw">
+							<div id="timepoints">
+								This is where timepoints will be populated.
+							</div>
+						</div>
+					</td>
+					
+					<td style="padding:5px;background-color:PaleGreen;vertical-align:top;border-radius:10px;width:30%">
+						<div style="height:100%;overflow: auto;font-size:1vw">
+							<div id="parameters">
+							This is where the parameters will be populated.
+							</div>
+						</div>
+					</td>	
+				</tr>
+			</table>
+		</div>
+
+		<div id="expandedselectors" style="width:100%;height:80%;display:none">
+			<table style="width:100%;height:100%">
+				<tr style="height:15%">
+					<td style="padding:5px;background-color:PowderBlue;vertical-align:top;border-radius:10px;width:30%;font-size:1vw">
+						<em><b>Cohorts</b></em>
+					</td>
+					<td style="padding:5px;background-color:Khaki;vertical-align:top;border-radius:10px;width:30%;font-size:1vw">
+						<em><b>Groups</b></em>
+					</td>
+					<td style="padding:5px;background-color:Pink;vertical-align:top;border-radius:10px;width:40%;font-size:1vw">
+						<em><b>Overall Relationships</b></em>&#32;&#32;&#32;&#32;<button id="exportrelationships" style="padding:4px;border-radius:10px;background-color:WhiteSmoke;border-color:Black;font-size:.8vw"><b>Export</b></button>
+					</td>			
+				</tr>
+				
+				<tr style="height:85%">
+					<td style="padding:5px;background-color:PowderBlue;vertical-align:top;border-radius:10px;width:30%">
+						<div style="height:100%;overflow: auto;font-size:1vw">
+							<div id="cancertypetreatmentpair">
+								This is where cohort selection options will be populated
+							</div>
+						</div>			
+					</td>
+					<td style="padding:5px;background-color:Khaki;vertical-align:top;border-radius:10px;width:30%">
+						<div style="height:100%;overflow: auto;font-size:1vw">
+							<div id="groups">
+								This is where group selection options will be populated
+							</div>
+						</div>
+					</td>
+					<td style="padding:5px;background-color:Pink;vertical-align:top;border-radius:10px;width:40%">
+						<div style="height:100%;overflow: auto;font-size:.9vw">
+							<div id="relationships">
+								This is where 2D relationship analyses will be populated
+							</div>
+						</div>
+					</td>
+				</tr>
+			</table>
+		</div>
+
+		<div id="deepstatsdiv" style="width:100%;height:80%;display:none">
+			<table style="width:100%;height:100%">
+				<tr style="height:15%">
+					<td style="padding:5px;background-color:PowderBlue;vertical-align:top;border-radius:10px;width:30%;font-size:1vw">
+						<em><b>Cohort Relationships</b></em>&#32;&#32;&#32;&#32;<button id="exportcohortrelationships" style="padding:4px;border-radius:10px;background-color:WhiteSmoke;border-color:Black;font-size:.8vw"><b>Export</b></button>
+					</td>
+					<td style="padding:5px;background-color:Khaki;vertical-align:top;border-radius:10px;width:30%;font-size:1vw">
+						<em><b>Group Relationships</b></em>&#32;&#32;&#32;&#32;<button id="exportgrouprelationships" style="padding:4px;border-radius:10px;background-color:WhiteSmoke;border-color:Black;font-size:.8vw"><b>Export</b></button>
+					</td>
+					<td style="padding:5px;background-color:Pink;vertical-align:top;border-radius:10px;width:40%;font-size:1vw">
+						<em><b>Cohort-Group Relationships</b></em>&#32;&#32;&#32;&#32;<button id="exportcohortgrouprelationships" style="padding:4px;border-radius:10px;background-color:WhiteSmoke;border-color:Black;font-size:.8vw"><b>Export</b></button>
+					</td>			
+				</tr>
+				
+				<tr style="height:85%">
+					<td style="padding:5px;background-color:PowderBlue;vertical-align:top;border-radius:10px;width:30%">
+						<div style="height:100%;overflow: auto;font-size:.9vw">
+							<div id="cohortrelationships">
+								This is where cohort relationships will be populated
+							</div>
+						</div>			
+					</td>
+					<td style="padding:5px;background-color:Khaki;vertical-align:top;border-radius:10px;width:30%">
+						<div style="height:100%;overflow: auto;font-size:.9vw">
+							<div id="grouprelationships">
+								This is where group relationships will be populated
+							</div>
+						</div>
+					</td>
+					<td style="padding:5px;background-color:Pink;vertical-align:top;border-radius:10px;width:40%">
+						<div style="height:100%;overflow: auto;font-size:.9vw">
+							<div id="cohortgrouprelationships">
+								This is where cohort/group relationships will be populated
+							</div>
+						</div>
+					</td>
+				</tr>
+			</table>
+		</div>
+		<div>
+		<a rel="license" href="http://creativecommons.org/licenses/by/4.0/"><img alt="Creative Commons License" style="border-width:0" src="https://i.creativecommons.org/l/by/4.0/80x15.png" /></a><br /><span xmlns:dct="http://purl.org/dc/terms/" property="dct:title">Biomarkers, Outcomes and Stats Software (BOSS)</span> by <a xmlns:cc="http://creativecommons.org/ns#" href="http://www.mycancerproject.org/boss/" property="cc:attributionName" rel="cc:attributionURL">M McNamara, Redmond Lab, EACRI, Providence Cancer Center (Portland, OR)</a> is licensed under a <a rel="license" href="http://creativecommons.org/licenses/by/4.0/">Creative Commons Attribution 4.0 International License</a>. 
+		</div>
+		
+	</div>
+</div>
+<div id="arraydownload"></div>
+</body>
+</html>
+
+
+
+
+
