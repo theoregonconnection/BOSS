@@ -3,7 +3,7 @@
   <script type='text/javascript' src='https://www.google.com/jsapi'></script>
   <script src="http://ajax.googleapis.com/ajax/libs/jqueryui/1.8.10/jquery-ui.js"></script>
   <script src="http://ajax.googleapis.com/ajax/libs/jquery/1.10.2/jquery.min.js"></script>
-  <script src="http://jquery-csv.googlecode.com/git/src/jquery.csv.js"></script>
+  <script type="text/javascript" src="https://cdn.rawgit.com/evanplaice/jquery-csv/master/src/jquery.csv.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/mathjs/2.4.2/math.min.js"></script>
   <script type="text/javascript" src="https://cdnjs.cloudflare.com/ajax/libs/mathjs/2.3.0/math.min.js"></script>
   <script type="text/javascript" src="https://cdn.jsdelivr.net/jstat/1.4.3/jstat.min.js"></script>
@@ -4993,27 +4993,27 @@ function updateoptionsCOLUMNCHART(MasterTreatmentCohortArrayGOOGLE, ColumnsToSho
 	var totalnumberofchartedcolumns = (totalnumberofchartedcolumns / 5);
 	//alert("Total Number of Charted Columns = " + totalnumberofchartedcolumns);
 	
-	if (numberofselectedparameters > 1 && numberofselectedparameters < 2.1)
+	if (totalnumberofchartedcolumns > 1 && totalnumberofchartedcolumns < 5.1)
 		{
-			var updatedfontsize = 20;
+			var updatedfontsize = 12;
 		}
-	if (numberofselectedparameters > 2 && numberofselectedparameters < 4.1)
-		{
-			var updatedfontsize = 14;
-		}		
-	if (numberofselectedparameters > 4)
+	if (totalnumberofchartedcolumns > 5 && totalnumberofchartedcolumns < 12.1)
 		{
 			var updatedfontsize = 9;
 		}		
-	if (numberofselectedparameters > 6)
+	if (totalnumberofchartedcolumns > 12)
 		{
-			var updatedfontsize = 6;
+			var updatedfontsize = 8;
 		}		
-	if (numberofselectedparameters > 10)
+	if (totalnumberofchartedcolumns > 25)
+		{
+			var updatedfontsize = 5;
+		}		
+	if (totalnumberofchartedcolumns > 40)
 		{
 			var updatedfontsize = 1;
 		}	
-	
+	//alert(totalnumberofchartedcolumns);
 	var seriesoptions = {};
 	var seriescount = 0;
 	while (seriescount < totalnumberofchartedcolumns)
