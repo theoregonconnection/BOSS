@@ -1,14 +1,24 @@
 <html>
 </head>
-  <script type='text/javascript' src='https://www.google.com/jsapi'></script>
+  
+    <script type='text/javascript' src='https://www.google.com/jsapi'></script>
   <script src="http://ajax.googleapis.com/ajax/libs/jqueryui/1.8.10/jquery-ui.js"></script>
   <script src="http://ajax.googleapis.com/ajax/libs/jquery/1.10.2/jquery.min.js"></script>
-  <script src="http://jquery-csv.googlecode.com/git/src/jquery.csv.js"></script>
+  <script type="text/javascript" src="https://cdn.rawgit.com/evanplaice/jquery-csv/master/src/jquery.csv.js"></script>
     <script type="text/javascript" src="https://cdnjs.cloudflare.com/ajax/libs/mathjs/2.3.0/math.min.js"></script>
   <script type="text/javascript" src="https://cdn.jsdelivr.net/jstat/1.4.3/jstat.min.js"></script>
-  <script type="text/javascript" src="https://www.google.com/jsapi?autoload={'modules':[{'name':'visualization', 'version':'1', 'packages':['corechart']}]}"></script>
- 
   
+  <script type="text/javascript" src="https://www.google.com/jsapi?autoload={'modules':[{'name':'visualization', 'version':'1', 'packages':['corechart']}]}">
+  
+     <script>
+  (function(i,s,o,g,r,a,m){i['GoogleAnalyticsObject']=r;i[r]=i[r]||function(){
+  (i[r].q=i[r].q||[]).push(arguments)},i[r].l=1*new Date();a=s.createElement(o),
+  m=s.getElementsByTagName(o)[0];a.async=1;a.src=g;m.parentNode.insertBefore(a,m)
+  })(window,document,'script','//www.google-analytics.com/analytics.js','ga');
+
+  ga('create', 'UA-61643350-1', 'auto');
+  ga('send', 'pageview');
+</script>
   
 <script type='text/javascript'>
 ///////////Notes and Acknowledgements/////////////
@@ -74,7 +84,8 @@ if (isOpera == true || isFirefox == true || isIE == true)
 
 /////Process Uploaded CSV File///////////////
   function handleFileSelect(evt) {
-    var files = evt.target.files; // FileList object
+   // alert("File Detected!");
+	var files = evt.target.files; // FileList object
     var file = files[0];
 
     // read the file metadata
@@ -88,15 +99,22 @@ if (isOpera == true || isFirefox == true || isIE == true)
 
 /////Read CSV file to Javascript Array
 function structureJavaScriptArray(file) {
-    var reader = new FileReader();
+    
+	var reader = new FileReader();
     reader.readAsText(file);
+	
     reader.onload = function(event){
-      var csv = event.target.result;
-      var data = $.csv.toArrays(csv);
+     
+	  var csv = event.target.result;
+      //alert(csv);
+	  
+	  var data = $.csv.toArrays(csv);
+	  
 	  var update = document.getElementById("update");
 	  var newbasearray = data;
 	  ////Placeholder array
 	  ///var newbasearray =  [];
+	  
 	  analyzeArray(newbasearray);
     };
     reader.onerror = function(){ alert('Unable to read ' + file.fileName); };	
@@ -2189,7 +2207,7 @@ function createarraysforlinearregressionTOTALRELATIONSHIPS(MasterArrayoutcomelab
 								MasterCount++; 
 							}
 						
-						if (XaxisOutcome.length > 7)
+						if (XaxisOutcome.length > 5)
 							{	
 								
 								var CorrelationInputArray = calculatelinearregressionandpvalue(XaxisOutcome, YaxisParameter, SelectedOutcome, SelectedPopulation);
